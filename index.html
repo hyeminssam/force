@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>화살표로 힘 나타내기 가상 실험</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8F0F2; --paper:#F7FBFC; --grid:#D3E4E9; --grid-major:#A6C6CF;
+  --ink:#1F2A44; --muted:#56647E; --line:#C3D4DA; --panel:#FFFFFF;
+  --force0:#E03131; --force1:#1C7ED6; --force2:#7048E8;
+  --wood:#D19A5E; --wood-edge:#8A5A2B; --wood-text:#3B2410;
+  --iron:#66778C; --iron-edge:#36424F; --iron-text:#FFFFFF;
+  --puck:#2B2D42; --puck-edge:#14151F; --puck-text:#FFFFFF;
+  --rod:#F2B134; --rod-edge:#A8740B; --rod-text:#3B2A05;
+  --goal:#0E9468; --goal-fill:rgba(14,148,104,.13);
+  --ghost:#8FA3B0; --ok:#0E7A57; --ok-bg:#E1F5EC; --try:#9A4A07; --try-bg:#FDF0E1;
+  --font:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1920; --paper:#112330; --grid:#1B3443; --grid-major:#2B5266;
+    --ink:#E4EDF2; --muted:#9DB2BF; --line:#294456; --panel:#152A37;
+    --force0:#FF6B6B; --force1:#4DABF7; --force2:#9775FA;
+    --wood:#D9A46C; --wood-edge:#F0C896; --wood-text:#2A1708;
+    --iron:#8696AC; --iron-edge:#C7D2E0; --iron-text:#0E1A22;
+    --puck:#B9C4D3; --puck-edge:#E9EFF5; --puck-text:#0E1A22;
+    --rod:#F5C04A; --rod-edge:#FFE2A0; --rod-text:#2A1D02;
+    --goal:#38D9A9; --goal-fill:rgba(56,217,169,.14);
+    --ghost:#5F7A8A; --ok:#63E6BE; --ok-bg:#0F3328; --try:#FFC078; --try-bg:#3A2610;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1920; --paper:#112330; --grid:#1B3443; --grid-major:#2B5266;
+  --ink:#E4EDF2; --muted:#9DB2BF; --line:#294456; --panel:#152A37;
+  --force0:#FF6B6B; --force1:#4DABF7; --force2:#9775FA;
+  --wood:#D9A46C; --wood-edge:#F0C896; --wood-text:#2A1708;
+  --iron:#8696AC; --iron-edge:#C7D2E0; --iron-text:#0E1A22;
+  --puck:#B9C4D3; --puck-edge:#E9EFF5; --puck-text:#0E1A22;
+  --rod:#F5C04A; --rod-edge:#FFE2A0; --rod-text:#2A1D02;
+  --goal:#38D9A9; --goal-fill:rgba(56,217,169,.14);
+  --ghost:#5F7A8A; --ok:#63E6BE; --ok-bg:#0F3328; --try:#FFC078; --try-bg:#3A2610;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*,*::before,*::after{box-sizing:inherit;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.6;}
+.page{max-width:1200px;margin:0 auto;padding:20px 20px 40px;}
+header{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:14px;}
+header h1{margin:0;font-size:clamp(1.45rem,3vw,2rem);line-height:1.2;font-weight:700;letter-spacing:-.01em;}
+header svg{flex:none;}
+header p{margin:0;color:var(--muted);max-width:60ch;font-size:.95rem;}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--line);margin-bottom:14px;}
+.tabs button{font:inherit;font-size:.92rem;background:none;border:none;color:var(--muted);padding:8px 14px;margin-bottom:-2px;border-bottom:3px solid transparent;cursor:pointer;border-radius:6px 6px 0 0;}
+.tabs button:hover{color:var(--ink);background:var(--paper);}
+.tabs button[aria-selected="true"]{color:var(--ink);font-weight:700;border-bottom-color:var(--force0);}
+.tabs .done::after{content:" ✓";color:var(--ok);font-weight:700;}
+.tabs .locked{opacity:.6;}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;}
+@media (max-width:920px){.layout{grid-template-columns:1fr;}}
+.stage{position:relative;}
+.canvas-wrap{width:100%;border:2px solid var(--grid-major);border-radius:10px;overflow:hidden;background:var(--paper);}
+canvas{display:block;touch-action:none;}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+.btn{font:inherit;font-size:.95rem;padding:9px 16px;border-radius:8px;border:2px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;}
+.btn:hover:not(:disabled){border-color:var(--muted);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn.primary{background:var(--force0);border-color:var(--force0);color:#fff;font-weight:700;padding:9px 22px;}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:.9rem;color:var(--muted);margin-left:6px;cursor:pointer;}
+.toggle input{accent-color:var(--force0);width:16px;height:16px;}
+select{font:inherit;font-size:.9rem;padding:7px 8px;border-radius:8px;border:2px solid var(--line);background:var(--panel);color:var(--ink);}
+.spacer{flex:1;}
+:focus-visible{outline:3px solid var(--force1);outline-offset:2px;}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:8px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%;text-align:center;}
+.toast.show{opacity:1;}
+aside{display:flex;flex-direction:column;gap:0;background:var(--panel);border:2px solid var(--line);border-radius:10px;}
+aside section{padding:16px 18px;}
+aside section+section{border-top:2px dashed var(--line);}
+aside h2{margin:0 0 6px;font-size:1.08rem;line-height:1.35;}
+aside h3{margin:0 0 8px;font-size:.95rem;color:var(--muted);font-weight:500;}
+.desc{margin:0;font-size:.93rem;}
+.feedback{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:.92rem;display:none;}
+.feedback.ok{display:block;background:var(--ok-bg);color:var(--ok);font-weight:500;}
+.feedback.try{display:block;background:var(--try-bg);color:var(--try);}
+.flist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+.flist li{border-left:5px solid var(--c);padding:4px 0 4px 10px;}
+.flist .top{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:.93rem;}
+.flist .del{font:inherit;font-size:.8rem;background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:1px 8px;cursor:pointer;}
+.flist dl{display:grid;grid-template-columns:auto 1fr;gap:0 10px;margin:4px 0 0;font-size:.88rem;}
+.flist dt{color:var(--muted);}
+.flist dd{margin:0;}
+.glyph{display:inline-block;font-weight:700;color:var(--c);margin-right:4px;}
+.empty{color:var(--muted);font-size:.9rem;margin:0;}
+.sum{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-direction:column;gap:6px;font-size:.93rem;}
+.sum .slot{display:inline-block;min-width:4.2em;text-align:center;padding:0 8px;border-radius:6px;border:2px dashed var(--line);color:var(--muted);font-weight:700;}
+.sum .slot.on{border-style:solid;border-color:var(--force0);color:var(--force0);}
+.linkbtn{font:inherit;font-size:.82rem;background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;margin-top:10px;}
+.note{font-size:.82rem;color:var(--muted);margin:6px 0 0;}
+.qlist{margin:8px 0 0;padding-left:1.3em;font-size:.92rem;}
+.qlist li{margin-bottom:4px;}
+.sum label{display:block;font-size:.93rem;margin-top:10px;line-height:2;}
+.sum input{font:inherit;font-size:.93rem;width:7.5em;padding:2px 8px;border:none;border-bottom:2px solid var(--muted);background:transparent;color:var(--ink);text-align:center;}
+.sum input:focus{outline:none;border-bottom-color:var(--force1);}
+.sum .res{display:block;font-size:.84rem;line-height:1.45;min-height:0;}
+.sum .res.ok{color:var(--ok);}
+.sum .res.try{color:var(--try);}
+.sum-actions{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap;}
+.sum-actions .linkbtn{margin-top:0;}
+.unlock{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:10px 14px;margin:-4px 0 14px;font-size:.92rem;}
+.unlock[hidden]{display:none;}
+.unlock input{font:inherit;width:7em;padding:7px 10px;border-radius:8px;border:2px solid var(--line);background:var(--paper);color:var(--ink);}
+@media (prefers-reduced-motion: reduce){.toast{transition:none;}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <svg width="74" height="34" viewBox="0 0 74 34" aria-hidden="true">
+      <circle cx="8" cy="17" r="6" fill="var(--force0)"/>
+      <line x1="8" y1="17" x2="56" y2="17" stroke="var(--force0)" stroke-width="5" stroke-linecap="round"/>
+      <path d="M70 17 L52 7 L52 27 Z" fill="var(--force0)"/>
+    </svg>
+    <div>
+      <h1>화살표로 힘 나타내기</h1>
+      <p>물체 위를 누른 채 끌면 화살표가 생겨요. <b>밀기</b>를 누르면 그 화살표대로 물체를 밀어요. 화살표를 바꾸면 물체의 움직임이 어떻게 달라질까요?</p>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <div class="unlock" id="unlock" hidden>
+    <label for="code">미션은 수업이 끝난 뒤에 열려요. 선생님이 알려준 열쇠 코드를 입력하세요.</label>
+    <input id="code" autocomplete="off" inputmode="numeric">
+    <button class="btn" id="codeBtn">열기</button>
+  </div>
+
+  <div class="layout">
+    <div class="stage">
+      <div class="canvas-wrap" id="wrap"><canvas id="lab" aria-label="물체에 화살표를 그려 힘을 주는 실험대"></canvas></div>
+      <div class="toast" id="toast" role="status"></div>
+      <div class="controls">
+        <button class="btn primary" id="run">밀기</button>
+        <button class="btn" id="reset">처음 위치로</button>
+        <button class="btn" id="clear">화살표 지우기</button>
+        <span class="spacer"></span>
+        <label class="toggle"><input type="checkbox" id="trail" checked>지나간 길</label>
+        <label class="toggle"><input type="checkbox" id="slow">느리게</label>
+        <label class="toggle" id="floorWrap">바닥
+          <select id="floor"><option value="wood">나무 바닥</option><option value="ice">얼음판</option></select>
+        </label>
+      </div>
+    </div>
+
+    <aside>
+      <section>
+        <h2 id="mTitle"></h2>
+        <div class="desc" id="mDesc"></div>
+        <div class="feedback" id="feedback" aria-live="polite"></div>
+      </section>
+      <section id="forcesSec">
+        <h3>내가 그린 힘</h3>
+        <div id="forces"></div>
+        <p class="note">화살표 끝을 다시 끌어 고칠 수 있어요. 새로 그리면 이전 화살표는 지워져요. 모눈 1칸 = 1 N</p>
+      </section>
+      <section id="sumSec">
+        <h2>정리해 보기</h2>
+        <h3>실험하며 알아낸 것을 빈칸에 써 보세요</h3>
+        <div class="sum">
+          <label>화살표의 <b>시작점</b>은 힘의 <input data-k="point" aria-label="화살표의 시작점은 힘의 무엇"> 을(를) 나타내요.<span class="res" data-r="point"></span></label>
+          <label>화살표의 <b>방향</b>은 힘의 <input data-k="dir" aria-label="화살표의 방향은 힘의 무엇"> 을(를) 나타내요.<span class="res" data-r="dir"></span></label>
+          <label>화살표의 <b>길이</b>는 힘의 <input data-k="mag" aria-label="화살표의 길이는 힘의 무엇"> 을(를) 나타내요.<span class="res" data-r="mag"></span></label>
+        </div>
+        <div class="sum-actions">
+          <button class="btn" id="checkSum">확인하기</button>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+const W=1000,H=600,G=40,K=200,KR=60,PUSH=0.5,MAXN=6,E=0.5;
+const FLOORS={wood:{mu:250,beta:3},ice:{mu:35,beta:0.4}};
+const TEMPLATES={
+  boxA:{kind:'rect',name:'나무 상자',w:60,h:60,m:1,col:'wood'},
+  boxB:{kind:'rect',name:'쇠 상자',w:80,h:80,m:2,col:'iron'},
+  puck:{kind:'circle',name:'퍽',r:30,m:1,col:'puck'},
+  rod:{kind:'rect',name:'막대',w:200,h:24,m:1,col:'rod'}
+};
+const UNLOCK_CODE='2026'; // 미션을 여는 열쇠 코드 (원하는 값으로 바꾸세요)
+const MISSIONS=[
+  {id:'free',tab:'자유 탐구',title:'자유롭게 밀어 보기',
+   desc:'물체 위를 누른 채 끌어 화살표를 그리고 <b>밀기</b>를 눌러요. 화살표는 한 번에 하나만 그릴 수 있어요.<ol class="qlist"><li>화살표를 물체의 <b>어디에서 시작</b>하는지만 바꿔 보세요. 막대는 어떻게 달라지나요?</li><li>화살표가 <b>가리키는 쪽</b>만 바꿔 보세요.</li><li>화살표의 <b>길이</b>만 바꿔 보세요.</li></ol>',
+   bodies:[['boxA',200,170],['boxB',200,430],['puck',560,170],['rod',640,430]],floorChoice:true},
+  {id:'dir',tab:'미션 1 골대',title:'퍽을 골대에 넣어라',locked:true,
+   desc:'퍽에 힘을 나타내는 화살표를 그리고 밀기를 눌러요. 퍽이 초록색 골대를 지나가면 성공!',
+   bodies:[['puck',240,440]],goal:{type:'circle',x:680,y:200,r:50},
+   success:'성공! 퍽은 화살표가 가리키는 쪽으로 움직였어요. 화살표의 방향은 힘의 방향을 나타내요.'},
+  {id:'mag',tab:'미션 2 주차',title:'상자를 주차 칸에 세워라',locked:true,
+   desc:'상자가 초록색 주차 칸 안에서 멈추려면 몇 N의 힘이 필요할까요? 너무 큰 힘이면 지나치고, 작은 힘이면 못 미쳐요.',
+   bodies:[['boxA',140,300]],goal:{type:'band',x1:365,x2:445,y1:190,y2:410},
+   success:'성공! 3 N의 힘으로 밀었어요. 화살표의 길이는 힘의 크기를 나타내요.'},
+  {id:'point',tab:'미션 3 결승선',title:'막대를 돌리지 말고 결승선 너머로',locked:true,
+   desc:'막대가 빙글 돌지 않고 곧게 미끄러져 결승선을 넘게 해 보세요. 힘의 작용점을 어디로 정해야 할까요?',
+   bodies:[['rod',500,460]],goal:{type:'line',y:220},
+   success:'성공! 같은 힘이라도 작용점에 따라 막대가 돌기도 하고 곧게 나아가기도 해요. 화살표의 시작점은 힘의 작용점을 나타내요.'}
+];
+const CHECKS={
+  point:{re:/작용|위치|지점|곳|장소|자리|부분|점/,ok:'맞아요! 힘이 작용하는 곳을 힘의 작용점이라고 해요.'},
+  dir:{re:/방향|쪽/,ok:'맞아요! 화살표가 가리키는 쪽이 힘의 방향이에요.'},
+  mag:{re:/크기|세기|강도|세게|세다|얼마나|양/,ok:'맞아요! 화살표가 길수록 큰 힘이에요. 이것을 힘의 크기라고 해요.'}
+};
+const ANSWER={point:'작용점',dir:'방향',mag:'크기'};
+
+const $=id=>document.getElementById(id);
+const canvas=$('lab'),ctx=canvas.getContext('2d'),wrap=$('wrap');
+let C={},scale=1,dpr=1;
+let mission=MISSIONS[0],bodies=[],arrows=[],state='edit',t=0,trails=[],runInfo={},drag=null,raf=null,last=0;
+let floor='wood';
+let revealed=false,solved=new Set(),unlocked=false,answers={},pendingMission=null;
+try{const s=JSON.parse(localStorage.getItem('force-arrow-progress2')||'{}');(s.s||[]).forEach(k=>solved.add(k));unlocked=!!s.u;answers=s.a||{};}catch(e){}
+function save(){try{localStorage.setItem('force-arrow-progress2',JSON.stringify({s:[...solved],u:unlocked,a:answers}));}catch(e){}}
+const isFree=()=>mission.id==='free';
+
+function readColors(){
+  const cs=getComputedStyle(document.documentElement);
+  ['paper','grid','grid-major','ink','muted','force0','force1','force2','wood','wood-edge','wood-text','iron','iron-edge','iron-text','puck','puck-edge','puck-text','rod','rod-edge','rod-text','goal','goal-fill','ghost']
+    .forEach(k=>C[k]=cs.getPropertyValue('--'+k).trim());
+}
+function resize(){
+  const cw=wrap.clientWidth; scale=cw/W; dpr=window.devicePixelRatio||1;
+  canvas.style.width=cw+'px'; canvas.style.height=(H*scale)+'px';
+  canvas.width=Math.round(cw*dpr); canvas.height=Math.round(H*scale*dpr); draw();
+}
+function makeBody(key,x,y,a){
+  const t=TEMPLATES[key]; const b=Object.assign({},t,{key,x0:x,y0:y,a0:a||0,x,y,a:a||0,vx:0,vy:0,om:0});
+  b.I=t.kind==='circle'?0.5*t.m*t.r*t.r:t.m*(t.w*t.w+t.h*t.h)/12; return b;
+}
+function rot(x,y,a){const c=Math.cos(a),s=Math.sin(a);return [x*c-y*s,x*s+y*c];}
+function arrowStart(ar,initial){
+  const b=bodies[ar.b]; const a=initial?b.a0:b.a; const [rx,ry]=rot(ar.lx,ar.ly,a);
+  return initial?[b.x0+rx,b.y0+ry]:[b.x+rx,b.y+ry];
+}
+function toWorld(e){const r=canvas.getBoundingClientRect();return [(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H];}
+
+/* ---------- tabs & mission ---------- */
+function buildTabs(){
+  const nav=$('tabs'); nav.innerHTML='';
+  MISSIONS.forEach(m=>{
+    const b=document.createElement('button'); const lock=m.locked&&!unlocked;
+    b.textContent=(lock?'🔒 ':'')+m.tab; b.setAttribute('role','tab');
+    b.setAttribute('aria-selected',m===mission?'true':'false');
+    if(lock) b.className='locked'; else if(solved.has(m.id)) b.className='done';
+    b.onclick=()=>{ if(lock){ pendingMission=m; $('unlock').hidden=false; $('code').focus(); return; } $('unlock').hidden=true; loadMission(m); };
+    nav.appendChild(b);
+  });
+}
+function loadMission(m){
+  stop(); mission=m;
+  bodies=m.bodies.map(([k,x,y,a])=>makeBody(k,x,y,a)); arrows=[]; state='edit'; t=0;
+  trails=bodies.map(()=>[]); runInfo={};
+  floor=m.floorChoice?$('floor').value:'wood';
+  $('floorWrap').style.display=m.floorChoice?'':'none';
+  $('mTitle').textContent=m.title; $('mDesc').innerHTML=m.desc; setFeedback(null);
+  $('forcesSec').hidden=isFree(); $('sumSec').hidden=!isFree();
+  buildTabs(); updateList(); setControls(); draw();
+}
+function setFeedback(ok,msg){const f=$('feedback'); if(ok===null){f.className='feedback';f.textContent='';return;} f.className='feedback '+(ok?'ok':'try'); f.textContent=msg;}
+function renderSummary(check){
+  document.querySelectorAll('.sum input').forEach(inp=>{
+    const k=inp.dataset.k, r=document.querySelector('.res[data-r="'+k+'"]');
+    if(document.activeElement!==inp) inp.value=answers[k]||'';
+    if(!check){ r.className='res'; r.textContent=''; return; }
+    const v=(answers[k]||'').replace(/\s/g,'');
+    if(!v){ r.className='res try'; r.textContent='실험해 보고 빈칸을 채워 보세요.'; }
+    else if(CHECKS[k].re.test(v)){ r.className='res ok'; r.textContent=CHECKS[k].ok; }
+    else { r.className='res try'; r.textContent='한 번 더 실험해 보고 생각해 볼까요?'; }
+  });
+}
+let toastTimer=null;
+function toast(msg){const el=$('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2400);}
+
+/* ---------- text helpers ---------- */
+function fmtN(n){return (n%1?n.toFixed(1):n)+' N';}
+function dirText(ang){
+  let d=Math.round(-ang*180/Math.PI); d=((d%360)+360)%360;
+  const names={0:'오른쪽',45:'오른쪽 위',90:'위쪽',135:'왼쪽 위',180:'왼쪽',225:'왼쪽 아래',270:'아래쪽',315:'오른쪽 아래'};
+  if(names[d]!==undefined) return names[d];
+  if(d<90) return '오른쪽에서 위로 '+d+'°';
+  if(d<180) return '왼쪽에서 위로 '+(180-d)+'°';
+  if(d<270) return '왼쪽에서 아래로 '+(d-180)+'°';
+  return '오른쪽에서 아래로 '+(360-d)+'°';
+}
+function pointText(b,lx,ly){
+  if(Math.abs(lx)<5&&Math.abs(ly)<5) return '가운데';
+  let h='',v='';
+  if(lx<-5) h='왼쪽'; else if(lx>5) h='오른쪽';
+  if(ly<-5) v='위'; else if(ly>5) v='아래';
+  let edge;
+  if(b.kind==='circle') edge=Math.hypot(lx,ly)>=b.r-6;
+  else edge=Math.abs(lx)>=b.w/2-6||Math.abs(ly)>=b.h/2-6;
+  if(b.key==='rod'){ v=''; if(!h) return '가운데'; return edge?h+' 끝':'가운데와 '+h+' 끝 사이'; }
+  const where=(h&&v)?h+' '+v:(h||v+'쪽');
+  return edge?where+' 끝':'가운데에서 조금 '+where;
+}
+function updateList(){
+  const box=$('forces');
+  if(!arrows.length){box.innerHTML='<p class="empty">아직 그린 화살표가 없어요. 물체 위를 누른 채 끌어 보세요.</p>';return;}
+  const ul=document.createElement('ul'); ul.className='flist';
+  arrows.forEach((ar,i)=>{
+    const b=bodies[ar.b]; const li=document.createElement('li'); li.style.setProperty('--c',C['force'+ar.c]);
+    li.innerHTML='<div class="top"><span>'+b.name+'</span><button class="del" aria-label="이 화살표 지우기">지우기</button></div>'+
+      '<dl><dt>작용점</dt><dd>'+pointText(b,ar.lx,ar.ly)+'</dd>'+
+      '<dt>방향</dt><dd><span class="glyph" style="transform:rotate('+ar.ang+'rad)">→</span>'+dirText(ar.ang)+'</dd>'+
+      '<dt>크기</dt><dd>'+fmtN(ar.n)+'</dd></dl>';
+    li.querySelector('.del').onclick=()=>{ if(state==='run') return; if(state==='done') resetPositions(); arrows.splice(i,1); updateList(); draw(); };
+    ul.appendChild(li);
+  });
+  box.innerHTML=''; box.appendChild(ul);
+}
+function setControls(){
+  const running=state==='run';
+  $('run').disabled=running; $('clear').disabled=running; $('floor').disabled=running;
+  $('reset').textContent=running?'멈추고 처음 위치로':'처음 위치로';
+}
+
+/* ---------- input ---------- */
+function hitBody(px,py){
+  for(let i=bodies.length-1;i>=0;i--){
+    const b=bodies[i]; const [lx,ly]=rot(px-b.x,py-b.y,-b.a);
+    if(b.kind==='circle'){ if(lx*lx+ly*ly<=(b.r+4)*(b.r+4)) return [i,lx,ly]; }
+    else if(Math.abs(lx)<=b.w/2+4&&Math.abs(ly)<=b.h/2+4) return [i,lx,ly];
+  }
+  return null;
+}
+function snapLocal(b,lx,ly){
+  let x=Math.round(lx/10)*10,y=Math.round(ly/10)*10;
+  if(b.kind==='circle'){const d=Math.hypot(x,y); if(d>b.r){const k=b.r/d;x=x*k;y=y*k;}}
+  else{x=Math.max(-b.w/2,Math.min(b.w/2,x));y=Math.max(-b.h/2,Math.min(b.h/2,y));}
+  return [x,y];
+}
+function tipHit(px,py){
+  for(const ar of arrows){ if(!ar.n) continue; const [sx,sy]=arrowStart(ar,false);
+    if(Math.hypot(px-(sx+ar.fx*G),py-(sy+ar.fy*G))<18) return ar; }
+  return null;
+}
+canvas.addEventListener('pointerdown',e=>{
+  if(state==='run') return;
+  const [px,py]=toWorld(e);
+  if(state==='done') resetPositions();
+  const tip=tipHit(px,py);
+  if(tip){ const [sx,sy]=arrowStart(tip,false); drag={ar:tip,sx,sy}; canvas.setPointerCapture(e.pointerId); e.preventDefault(); draw(); return; }
+  const h=hitBody(px,py); if(!h) return;
+  const [i,lx,ly]=h;
+  const [sx_,sy_]=snapLocal(bodies[i],lx,ly);
+  const ar={b:i,lx:sx_,ly:sy_,fx:0,fy:0,n:0,ang:0,c:0}; arrows=[ar];
+  const [sx,sy]=arrowStart(ar,false); drag={ar,sx,sy};
+  canvas.setPointerCapture(e.pointerId); e.preventDefault(); setFeedback(null); draw();
+});
+canvas.addEventListener('pointermove',e=>{
+  const [px,py]=toWorld(e);
+  if(!drag){ canvas.style.cursor=state==='run'?'default':(tipHit(px,py)?'grab':(hitBody(px,py)?'crosshair':'default')); return; }
+  const ar=drag.ar, dx=px-drag.sx, dy=py-drag.sy;
+  const n=Math.min(MAXN,Math.round(Math.hypot(dx,dy)/G*2)/2);
+  const step=Math.PI/12; const ang=n>0?Math.round(Math.atan2(dy,dx)/step)*step:ar.ang;
+  ar.n=n; ar.ang=ang; ar.fx=n*Math.cos(ang); ar.fy=n*Math.sin(ang);
+  updateList(); draw();
+});
+function endDrag(){
+  if(!drag) return;
+  if(!drag.ar.n){ arrows.splice(arrows.indexOf(drag.ar),1); }
+  drag=null; updateList(); draw();
+}
+canvas.addEventListener('pointerup',endDrag);
+canvas.addEventListener('pointercancel',endDrag);
+
+/* ---------- simulation ---------- */
+function resetPositions(){
+  stop();
+  for(const b of bodies){b.x=b.x0;b.y=b.y0;b.a=b.a0;b.vx=b.vy=b.om=0;}
+  state='edit'; t=0; trails=bodies.map(()=>[]); runInfo={}; setControls(); draw();
+}
+function stop(){ if(raf) cancelAnimationFrame(raf); raf=null; }
+function run(){
+  if(!arrows.length){toast('물체 위에서 끌어 화살표를 먼저 그려 보세요.');return;}
+  if(state==='done') resetPositions();
+  state='run'; t=0; runInfo={hit:false,crossed:false};
+  trails=bodies.map(b=>[[b.x,b.y]]); setFeedback(null); setControls();
+  last=performance.now(); raf=requestAnimationFrame(loop);
+}
+function loop(now){
+  const real=Math.min(0.05,(now-last)/1000); last=now;
+  let sim=real*($('slow').checked?0.25:1);
+  while(sim>1e-9&&state==='run'){const dt=Math.min(1/240,sim); step(dt); sim-=dt;}
+  bodies.forEach((b,i)=>{const tr=trails[i]; const p=tr[tr.length-1]; if(!p||Math.hypot(b.x-p[0],b.y-p[1])>3) tr.push([b.x,b.y]);});
+  draw();
+  if(state==='run') raf=requestAnimationFrame(loop); else raf=null;
+}
+function ext(b){
+  if(b.kind==='circle') return [b.r,b.r];
+  const c=Math.abs(Math.cos(b.a)),s=Math.abs(Math.sin(b.a));
+  return [b.w/2*c+b.h/2*s,b.w/2*s+b.h/2*c];
+}
+function step(dt){
+  const fl=FLOORS[floor], pushing=t<PUSH;
+  bodies.forEach((b,i)=>{
+    if(pushing){
+      let ax=0,ay=0,tq=0;
+      for(const ar of arrows){ if(ar.b!==i) continue;
+        const [rx,ry]=rot(ar.lx,ar.ly,b.a);
+        ax+=K*ar.fx/b.m; ay+=K*ar.fy/b.m; tq+=rx*ar.fy-ry*ar.fx; }
+      b.vx+=ax*dt; b.vy+=ay*dt; b.om+=KR*tq/b.I*dt;
+    }else{
+      const sp=Math.hypot(b.vx,b.vy);
+      if(sp>0){const ns=Math.max(0,sp-fl.mu*dt); b.vx*=ns/sp; b.vy*=ns/sp;}
+      const so=Math.abs(b.om); if(so>0) b.om=Math.sign(b.om)*Math.max(0,so-fl.beta*dt);
+    }
+    b.x+=b.vx*dt; b.y+=b.vy*dt; b.a+=b.om*dt;
+    const [ex,ey]=ext(b);
+    if(b.x-ex<0){b.x=ex; if(b.vx<0) b.vx=-b.vx*E;}
+    if(b.x+ex>W){b.x=W-ex; if(b.vx>0) b.vx=-b.vx*E;}
+    if(b.y-ey<0){b.y=ey; if(b.vy<0) b.vy=-b.vy*E;}
+    if(b.y+ey>H){b.y=H-ey; if(b.vy>0) b.vy=-b.vy*E;}
+  });
+  t+=dt;
+  const g=mission.goal, b0=bodies[0];
+  if(g&&g.type==='circle'&&Math.hypot(b0.x-g.x,b0.y-g.y)<g.r) runInfo.hit=true;
+  if(g&&g.type==='line'&&b0.y<g.y) runInfo.crossed=true;
+  if(t>PUSH&&bodies.every(b=>Math.hypot(b.vx,b.vy)<0.5&&Math.abs(b.om)<0.005)){
+    bodies.forEach(b=>{b.vx=b.vy=b.om=0;}); finish();
+  }
+}
+function finish(){ state='done'; setControls(); evaluate(); }
+function evaluate(){
+  const g=mission.goal; if(!g) return;
+  const b=bodies[0]; let ok=false,msg='';
+  if(mission.id==='dir'){
+    if(runInfo.hit) ok=true; else{
+      let fx=0,fy=0; arrows.forEach(a=>{fx+=a.fx;fy+=a.fy;});
+      let d=Math.abs(Math.atan2(g.y-b.y0,g.x-b.x0)-Math.atan2(fy,fx)); if(d>Math.PI) d=2*Math.PI-d;
+      msg=d<0.17?'방향은 잘 맞췄어요! 그런데 골대까지 가지 못했어요. 화살표를 더 길게 그려 보세요.':'퍽이 골대 쪽으로 가지 않았어요. 화살표가 어느 쪽을 가리키는지 살펴보고 다시 그려 보세요.';
+    }
+  }else if(mission.id==='mag'){
+    const inX=b.x>=g.x1&&b.x<=g.x2, inY=b.y>=g.y1&&b.y<=g.y2;
+    if(inX&&inY) ok=true;
+    else if(!inY) msg='상자가 옆으로 비켜 갔어요. 화살표가 주차 칸 쪽을 가리키는지 확인해요.';
+    else if(b.x<g.x1) msg='주차 칸에 못 미쳤어요. 화살표를 조금 더 길게 그려 보세요.';
+    else msg='주차 칸을 지나쳤어요. 화살표를 조금 짧게 그려 보세요.';
+  }else if(mission.id==='point'){
+    const turned=Math.abs(b.a-b.a0)>10*Math.PI/180;
+    if(runInfo.crossed&&!turned) ok=true;
+    else if(runInfo.crossed) msg='결승선은 넘었지만 막대가 돌아갔어요. 화살표를 막대의 어디에서 시작하면 돌지 않을까요?';
+    else if(turned) msg='막대가 빙글 돌았어요. 화살표의 시작점을 막대의 다른 곳으로 옮겨 보세요.';
+    else msg='돌지 않고 곧게 갔어요, 좋아요! 이제 결승선을 넘을 만큼 충분히 밀어 보세요.';
+  }
+  if(ok){ msg=mission.success; solved.add(mission.id); save(); buildTabs(); }
+  setFeedback(ok,msg);
+}
+
+/* ---------- drawing ---------- */
+function drawGrid(){
+  ctx.fillStyle=C.paper; ctx.fillRect(0,0,W,H);
+  for(let x=0;x<=W;x+=G){ctx.strokeStyle=(x%(G*5)===0)?C['grid-major']:C.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x+.5,0); ctx.lineTo(x+.5,H); ctx.stroke();}
+  for(let y=0;y<=H;y+=G){ctx.strokeStyle=(y%(G*5)===0)?C['grid-major']:C.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,y+.5); ctx.lineTo(W,y+.5); ctx.stroke();}
+}
+function label(text,x,y,color,size,align){
+  ctx.font='700 '+(size||14)+'px "IBM Plex Sans KR", sans-serif'; ctx.textAlign=align||'center'; ctx.textBaseline='middle';
+  ctx.lineWidth=4; ctx.strokeStyle=C.paper; ctx.strokeText(text,x,y); ctx.fillStyle=color; ctx.fillText(text,x,y);
+}
+function drawGoal(){
+  const g=mission.goal; if(!g) return;
+  ctx.save(); ctx.setLineDash([8,6]); ctx.lineWidth=3; ctx.strokeStyle=C.goal; ctx.fillStyle=C['goal-fill'];
+  if(g.type==='circle'){ ctx.beginPath(); ctx.arc(g.x,g.y,g.r,0,Math.PI*2); ctx.fill(); ctx.stroke(); ctx.setLineDash([]); label('골대',g.x,g.y-g.r-14,C.goal,15); }
+  else if(g.type==='band'){ ctx.fillRect(g.x1,g.y1,g.x2-g.x1,g.y2-g.y1); ctx.strokeRect(g.x1,g.y1,g.x2-g.x1,g.y2-g.y1); ctx.setLineDash([]); label('주차 칸',(g.x1+g.x2)/2,g.y1-14,C.goal,15); }
+  else if(g.type==='line'){ ctx.beginPath(); ctx.moveTo(0,g.y); ctx.lineTo(W,g.y); ctx.stroke(); ctx.setLineDash([]); label('결승선',W-60,g.y-14,C.goal,15); }
+  else if(g.type==='spin'){ ctx.beginPath(); ctx.arc(g.x,g.y,g.r,0,Math.PI*2); ctx.fill(); ctx.stroke(); ctx.setLineDash([]); label('이 자리에서 돌리기',g.x,g.y-70,C.goal,15); }
+  ctx.restore();
+}
+function rr(x,y,w,h,r){ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,w,h,r); else ctx.rect(x,y,w,h);}
+function drawBody(b,ghost){
+  const x=ghost?b.x0:b.x, y=ghost?b.y0:b.y, a=ghost?b.a0:b.a;
+  ctx.save(); ctx.translate(x,y); ctx.rotate(a);
+  if(ghost){
+    ctx.setLineDash([6,5]); ctx.lineWidth=2; ctx.strokeStyle=C.ghost;
+    if(b.kind==='circle'){ctx.beginPath(); ctx.arc(0,0,b.r,0,Math.PI*2); ctx.stroke();} else {rr(-b.w/2,-b.h/2,b.w,b.h,4); ctx.stroke();}
+    ctx.restore(); return;
+  }
+  const fill=C[b.col], edge=C[b.col+'-edge'], txt=C[b.col+'-text'];
+  ctx.fillStyle=fill; ctx.strokeStyle=edge; ctx.lineWidth=2.5;
+  if(b.kind==='circle'){
+    ctx.beginPath(); ctx.arc(0,0,b.r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle=txt; ctx.globalAlpha=.55; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(b.r*.45,0); ctx.lineTo(b.r-4,0); ctx.stroke(); ctx.globalAlpha=1;
+  }else{
+    rr(-b.w/2,-b.h/2,b.w,b.h,b.key==='rod'?6:4); ctx.fill(); ctx.stroke();
+    if(b.key==='boxA'){ctx.globalAlpha=.5; ctx.lineWidth=1.5; rr(-b.w/2+6,-b.h/2+6,b.w-12,b.h-12,2); ctx.stroke(); ctx.globalAlpha=1;}
+    if(b.key==='boxB'){ctx.fillStyle=edge; [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{ctx.beginPath(); ctx.arc(sx*(b.w/2-9),sy*(b.h/2-9),3,0,Math.PI*2); ctx.fill();});}
+  }
+  ctx.fillStyle=txt; ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(b.key==='rod'){ ctx.font='700 13px "IBM Plex Sans KR", sans-serif'; ctx.fillText(b.name+'  '+b.m+' kg',0,1); }
+  else{ ctx.font='700 13px "IBM Plex Sans KR", sans-serif'; ctx.fillText(b.name,0,-8); ctx.font='500 12px "IBM Plex Sans KR", sans-serif'; ctx.fillText(b.m+' kg',0,9); }
+  ctx.restore();
+}
+function drawArrow(sx,sy,ar,alpha,ticks){
+  const color=C['force'+ar.c]; ctx.save(); ctx.globalAlpha=alpha;
+  const ex=sx+ar.fx*G, ey=sy+ar.fy*G, len=Math.hypot(ex-sx,ey-sy);
+  if(len>1){
+    const ux=(ex-sx)/len, uy=(ey-sy)/len, head=Math.min(18,len*.55);
+    ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex-ux*head*.8,ey-uy*head*.8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex-ux*head-uy*head*.55,ey-uy*head+ux*head*.55); ctx.lineTo(ex-ux*head+uy*head*.55,ey-uy*head-ux*head*.55); ctx.closePath(); ctx.fill();
+    if(ticks){ ctx.lineWidth=2; ctx.strokeStyle=C.ink; for(let k=1;k<ar.n;k++){const px=sx+ux*G*k, py=sy+uy*G*k; ctx.beginPath(); ctx.moveTo(px-uy*9,py+ux*9); ctx.lineTo(px+uy*9,py-ux*9); ctx.stroke();} }
+    if(!isFree()) label(fmtN(ar.n),ex+ux*22,ey+uy*22,color,15);
+  }
+  ctx.beginPath(); ctx.arc(sx,sy,6.5,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); ctx.lineWidth=2.5; ctx.strokeStyle=C.paper; ctx.stroke();
+  ctx.restore();
+}
+function drawScale(){
+  const x=20,y=H-22; ctx.save(); ctx.strokeStyle=C.ink; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+G,y); ctx.moveTo(x,y-7); ctx.lineTo(x,y+7); ctx.moveTo(x+G,y-7); ctx.lineTo(x+G,y+7); ctx.stroke();
+  label('1칸 = 1 N',x+G+12,y,C.ink,14,'left'); ctx.restore();
+}
+function draw(){
+  if(!C.paper) return;
+  ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);
+  drawGrid(); drawGoal();
+  if(state!=='edit'){
+    bodies.forEach(b=>drawBody(b,true));
+    if($('trail').checked){ bodies.forEach((b,i)=>{const tr=trails[i]; if(tr.length<2) return; ctx.save(); ctx.strokeStyle=C[b.col+'-edge']; ctx.globalAlpha=.6; ctx.lineWidth=2; ctx.setLineDash([2,6]); ctx.beginPath(); ctx.moveTo(tr[0][0],tr[0][1]); tr.forEach(p=>ctx.lineTo(p[0],p[1])); ctx.stroke(); ctx.restore();}); }
+    arrows.forEach(ar=>{const [sx,sy]=arrowStart(ar,true); drawArrow(sx,sy,ar,.32,false);});
+  }
+  bodies.forEach(b=>drawBody(b,false));
+  if(state==='edit') arrows.forEach(ar=>{const [sx,sy]=arrowStart(ar,false); drawArrow(sx,sy,ar,1,drag&&drag.ar===ar);});
+  else if(state==='run'){ const al=t<PUSH?1:Math.max(0,1-(t-PUSH)/0.4); if(al>0) arrows.forEach(ar=>{const [sx,sy]=arrowStart(ar,false); drawArrow(sx,sy,ar,al,false);}); }
+  if(!isFree()) drawScale();
+  if(state==='edit'&&!arrows.length){ label('물체 위를 누른 채 끌어서 화살표를 그려 보세요',W/2,26,C.muted,16); }
+}
+
+/* ---------- wiring ---------- */
+$('run').onclick=run;
+$('reset').onclick=()=>{resetPositions();};
+$('clear').onclick=()=>{ if(state==='done') resetPositions(); arrows=[]; setFeedback(null); updateList(); draw(); };
+$('trail').onchange=draw;
+$('floor').onchange=()=>{ floor=$('floor').value; resetPositions(); };
+$('checkSum').onclick=()=>renderSummary(true);
+document.querySelectorAll('.sum input').forEach(inp=>inp.addEventListener('input',()=>{answers[inp.dataset.k]=inp.value; save();}));
+function tryUnlock(){
+  if($('code').value.trim()===UNLOCK_CODE){ unlocked=true; save(); $('unlock').hidden=true; $('code').value=''; loadMission(pendingMission||MISSIONS[1]); toast('미션이 열렸어요!'); }
+  else { toast('열쇠 코드가 맞지 않아요.'); $('code').select(); }
+}
+$('codeBtn').onclick=tryUnlock;
+$('code').addEventListener('keydown',e=>{ if(e.key==='Enter') tryUnlock(); });
+const mq=window.matchMedia('(prefers-color-scheme: dark)');
+(mq.addEventListener?mq.addEventListener('change',()=>{readColors();updateList();draw();}):mq.addListener(()=>{readColors();updateList();draw();}));
+new ResizeObserver(resize).observe(wrap);
+readColors(); loadMission(MISSIONS[0]); renderSummary(); resize();
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(draw);
+})();
+</script>
+</body>
+</html>
