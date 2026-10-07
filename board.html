@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>챌린지 실시간 순위</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0E1C24; --panel:#152A37; --panel2:#1B3443; --line:#294456;
+  --ink:#E9F1F5; --muted:#9DB2BF; --accent:#FF6B6B; --blue:#4DABF7; --ok:#63E6BE;
+  --gold:#FFD43B; --silver:#CED4DA; --bronze:#E8A26B; --danger:#FF8787;
+  --font:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#E8F0F2; --panel:#FFFFFF; --panel2:#F2F7F9; --line:#C3D4DA;
+  --ink:#1F2A44; --muted:#56647E; --accent:#E03131; --blue:#1C7ED6; --ok:#0E7A57;
+  --gold:#C48A00; --silver:#7B8794; --bronze:#B5652B; --danger:#C92A2A;
+}
+:root{box-sizing:border-box;}
+*,*::before,*::after{box-sizing:inherit;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);min-height:100vh;}
+.page{padding:22px clamp(16px,3vw,40px) 40px;max-width:1500px;margin:0 auto;}
+header{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:18px;}
+h1{margin:0;font-size:clamp(1.6rem,3.2vw,2.6rem);line-height:1.15;}
+.meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-left:auto;font-size:1.05rem;}
+select{font:inherit;font-size:1.1rem;font-weight:700;padding:6px 10px;border-radius:10px;border:2px solid var(--line);background:var(--panel);color:var(--ink);}
+.live{font-weight:700;color:var(--muted);}
+.gate{font-weight:700;color:var(--muted);background:var(--panel);border:2px solid var(--line);border-radius:20px;padding:3px 12px;}
+.gate.on{color:var(--ok);border-color:var(--ok);}
+.live.on{color:var(--ok);}
+.live.on::before{content:"● ";animation:blink 1.6s infinite;}
+@keyframes blink{50%{opacity:.25}}
+.join{width:100%;margin:0;color:var(--muted);font-size:1.05rem;}
+.join b{color:var(--ink);word-break:break-all;}
+.board{list-style:none;margin:0;padding:0;display:grid;gap:10px 28px;grid-auto-flow:column;}
+.board li{display:grid;grid-template-columns:3.2em 1fr auto auto;align-items:center;gap:12px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px 18px;font-size:clamp(1.15rem,1.9vw,1.6rem);position:relative;}
+.board li.click{cursor:pointer;}
+.board li.click:hover{border-color:var(--blue);}
+.rk{font-weight:700;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums;}
+.board li.r1{border-color:var(--gold);} .board li.r1 .rk{color:var(--gold);}
+.board li.r2{border-color:var(--silver);} .board li.r2 .rk{color:var(--silver);}
+.board li.r3{border-color:var(--bronze);} .board li.r3 .rk{color:var(--bronze);}
+.nk{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nk small{font-weight:400;color:var(--muted);font-size:.7em;margin-left:8px;}
+.nk.locked{color:var(--muted);font-style:italic;font-weight:500;}
+.pl{font-size:.7em;font-weight:700;color:var(--ok);background:var(--panel2);border-radius:20px;padding:2px 10px;white-space:nowrap;}
+.sc{font-weight:700;font-variant-numeric:tabular-nums;text-align:right;min-width:4.5ch;}
+.bump{animation:bump .5s;}
+@keyframes bump{30%{background:var(--panel2);transform:scale(1.02);}}
+.msg{font-size:1.2rem;color:var(--muted);text-align:center;margin:60px auto;max-width:640px;line-height:1.6;}
+.tbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:22px;padding:12px 16px;border:2px dashed var(--line);border-radius:12px;}
+.tbar span{color:var(--muted);margin-right:auto;}
+.btn{font:inherit;font-size:.95rem;padding:8px 14px;border-radius:9px;border:2px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;}
+.btn:hover{border-color:var(--muted);}
+.btn.danger{border-color:var(--danger);color:var(--danger);}
+.secret{position:fixed;right:6px;bottom:6px;width:30px;height:30px;border:none;background:transparent;color:var(--muted);opacity:.15;font-size:20px;cursor:pointer;border-radius:50%;}
+.secret:hover{opacity:.5;}
+.tpanel{position:fixed;right:10px;bottom:44px;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:8px;align-items:center;box-shadow:0 8px 24px rgba(0,0,0,.3);}
+.tpanel input{font:inherit;width:6.5em;padding:6px 8px;border-radius:8px;border:2px solid var(--line);background:var(--bg);color:var(--ink);}
+.popover{position:fixed;z-index:10;background:var(--panel);border:2px solid var(--blue);border-radius:12px;padding:14px 16px;min-width:250px;box-shadow:0 10px 30px rgba(0,0,0,.35);}
+.popover h3{margin:0 0 4px;font-size:1.15rem;}
+.popover p{margin:0 0 10px;color:var(--muted);}
+.popover .row{display:flex;gap:8px;flex-wrap:wrap;}
+.toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;}
+.toast.show{opacity:1;}
+[hidden]{display:none !important;}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px;}
+@media (max-width:900px){ .board{grid-auto-flow:row !important;grid-template-rows:none !important;} }
+@media (prefers-reduced-motion: reduce){ .bump{animation:none;} .live.on::before{animation:none;} }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>🏆 힘 화살표 챌린지 순위</h1>
+    <div class="meta">
+      <select id="cls" aria-label="반 선택"></select>
+      <span id="date"></span>
+      <span class="gate" id="gate">🔒 게임 닫힘</span>
+      <span class="live" id="live">연결 중…</span>
+      <button class="btn" id="theme" title="밝기 바꾸기">◐</button>
+    </div>
+    <p class="join">참여 주소: <b id="url"></b></p>
+  </header>
+
+  <ol class="board" id="board"></ol>
+  <p class="msg" id="msg" hidden></p>
+
+  <div class="tbar" id="tbar" hidden>
+    <span>교사 모드 · 닉네임을 누르면 학번 확인과 수정을 할 수 있어요</span>
+    <button class="btn" id="gateBtn">게임 열기</button>
+    <button class="btn danger" id="clearCls">이 반 오늘 기록 모두 지우기</button>
+    <button class="btn" id="tOff">교사 모드 끄기</button>
+  </div>
+</div>
+
+<button class="secret" id="tBtn" aria-label="교사용">·</button>
+<div class="tpanel" id="tPanel" hidden>
+  <label for="tPw">교사용</label>
+  <input id="tPw" type="password" inputmode="numeric" autocomplete="off">
+  <button class="btn" id="tOk">확인</button>
+</div>
+<div class="popover" id="popover" hidden></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+const CFG=Object.assign({SUPABASE_URL:'',SUPABASE_KEY:''},window.GAME_CONFIG||{});
+const $=id=>document.getElementById(id);
+let sb=null;
+try{ if(CFG.SUPABASE_URL&&CFG.SUPABASE_KEY&&window.supabase) sb=window.supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_KEY); }catch(e){}
+
+const kstDay=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+const clsName=c=>c[0]+'학년 '+parseInt(c.slice(1),10)+'반';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const bumped=new Set();
+let rows=new Map(), day=kstDay(), teacherPw=null, selCls=null, renderT=null;
+try{ selCls=localStorage.getItem('fg-board-cls'); }catch(e){}
+try{ if(localStorage.getItem('fg-board-theme')==='light') document.documentElement.dataset.theme='light'; }catch(e){}
+
+$('url').textContent=location.href.replace(/board\.html.*$/,'').replace(/[?#].*$/,'');
+const showDate=()=>{const d=new Date(Date.now()+9*3600e3); $('date').textContent=(d.getUTCMonth()+1)+'월 '+d.getUTCDate()+'일';};
+showDate();
+
+let toastT=null;
+function toast(m){const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400);}
+function message(m){ $('msg').hidden=!m; $('msg').innerHTML=m||''; }
+
+if(!sb){
+  $('live').textContent='서버 미연결';
+  message('순위 서버가 아직 연결되지 않았어요.<br>설치 안내서에 따라 <b>config.js</b>에 Supabase 주소와 키를 넣어 주세요.');
+  return;
+}
+
+/* ---------- 게임 열기 스위치 ---------- */
+let gateOpen=false;
+function applyGate(r){
+  gateOpen=!!(r&&r.open&&new Date(Date.parse(r.updated_at)+9*3600e3).toISOString().slice(0,10)===kstDay());
+  $('gate').textContent=gateOpen?'🎮 게임 열림':'🔒 게임 닫힘'; $('gate').className='gate'+(gateOpen?' on':'');
+  $('gateBtn').textContent=gateOpen?'게임 닫기':'게임 열기';
+}
+async function loadGate(){ try{ const {data,error}=await sb.from('game_gate').select('open,updated_at').eq('id',1).maybeSingle(); if(!error) applyGate(data); }catch(e){} }
+$('gateBtn').onclick=async()=>{
+  const want=!gateOpen; const {error}=await sb.rpc('admin_set_gate',{p_pw:teacherPw,p_open:want});
+  if(error){ toast('처리하지 못했어요: '+error.message); return; }
+  applyGate({open:want,updated_at:new Date().toISOString()}); toast(want?'게임을 열었어요. 학생 화면에 바로 게임 탭이 열려요.':'게임을 닫았어요.');
+};
+
+/* ---------- 데이터 ---------- */
+async function loadAll(){
+  const today=kstDay();
+  if(today!==day){ day=today; rows=new Map(); showDate(); }
+  const {data,error}=await sb.from('players').select('sid,cls,nick,nick_locked,best,score,playing,plays,updated_at').eq('day',day);
+  if(error){ console.warn(error); $('live').textContent='연결 오류'; $('live').className='live'; return; }
+  rows=new Map(data.map(r=>[r.sid,r])); render();
+}
+function schedule(){ if(renderT) return; renderT=setTimeout(()=>{renderT=null; render();},250); }
+sb.channel('fg-board')
+  .on('postgres_changes',{event:'*',schema:'public',table:'game_gate'},p=>applyGate(p.new))
+  .on('postgres_changes',{event:'*',schema:'public',table:'players'},p=>{
+    if(p.eventType==='DELETE'){ loadAll(); return; }
+    const r=p.new; if(!r||r.day!==day) return;
+    const old=rows.get(r.sid); rows.set(r.sid,r);
+    if(old&&r.best>old.best) bumped.add(r.sid);
+    schedule();
+  })
+  .subscribe(status=>{
+    const on=status==='SUBSCRIBED';
+    $('live').textContent=on?'실시간':'다시 연결 중…'; $('live').className='live'+(on?' on':'');
+    if(on){ loadAll(); loadGate(); }
+  });
+setInterval(()=>{loadAll();loadGate();},15000);
+setInterval(render,5000);
+loadAll();
+
+/* ---------- 그리기 ---------- */
+function isPlaying(r){ return r.playing&&Date.now()-Date.parse(r.updated_at)<20000; }
+function render(){
+  const all=[...rows.values()];
+  const classes=[...new Set(all.map(r=>r.cls))].sort();
+  const sel=$('cls');
+  if(selCls&&selCls!=='all'&&!classes.includes(selCls)&&classes.length) classes.push(selCls), classes.sort();
+  const want=['all',...classes].join(',');
+  if(sel.dataset.opts!==want){
+    sel.innerHTML='<option value="all">전체</option>'+classes.map(c=>'<option value="'+c+'">'+clsName(c)+'</option>').join('');
+    sel.dataset.opts=want;
+  }
+  if(!selCls||(selCls!=='all'&&!classes.includes(selCls))) selCls=classes.length===1?classes[0]:'all';
+  sel.value=selCls;
+
+  const list=all.filter(r=>selCls==='all'||r.cls===selCls)
+    .sort((a,b)=>b.best-a.best||Date.parse(a.updated_at)-Date.parse(b.updated_at));
+  $('clearCls').textContent=selCls==='all'?'오늘 기록 모두 지우기':clsName(selCls)+' 오늘 기록 모두 지우기';
+  if(!list.length){ $('board').innerHTML=''; message('아직 참여한 학생이 없어요.<br>위 주소로 들어와 게임을 시작해 보세요!'); return; }
+  message('');
+
+  const ol=$('board');
+  const cols=list.length>10&&window.innerWidth>900?2:1;
+  ol.style.gridTemplateColumns='repeat('+cols+',minmax(0,1fr))';
+  ol.style.gridTemplateRows='repeat('+Math.ceil(list.length/cols)+',auto)';
+
+  const before=new Map(); ol.querySelectorAll('li').forEach(li=>before.set(li.dataset.sid,li.getBoundingClientRect()));
+  const existing=new Map([...ol.querySelectorAll('li')].map(li=>[li.dataset.sid,li]));
+  const frag=document.createDocumentFragment();
+  let rank=0,prev=null;
+  list.forEach((r,i)=>{
+    if(r.best!==prev){ rank=i+1; prev=r.best; }
+    let li=existing.get(r.sid); existing.delete(r.sid);
+    if(!li){ li=document.createElement('li'); li.dataset.sid=r.sid; li.onclick=()=>openPop(li.dataset.sid,li); }
+    li.className=(rank<=3?'r'+rank:'')+(teacherPw?' click':'');
+    const medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
+    li.innerHTML='<span class="rk">'+medal+'</span>'+
+      '<span class="nk'+(r.nick_locked?' locked':'')+'">'+esc(r.nick)+(selCls==='all'?'<small>'+clsName(r.cls)+'</small>':'')+'</span>'+
+      (isPlaying(r)?'<span class="pl">🎮 진행 중</span>':'<span></span>')+
+      '<span class="sc">'+r.best.toLocaleString()+'</span>';
+    if(bumped.has(r.sid)){ li.classList.remove('bump'); void li.offsetWidth; li.classList.add('bump'); }
+    frag.appendChild(li);
+  });
+  bumped.clear();
+  ol.innerHTML=''; ol.appendChild(frag);
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+    ol.querySelectorAll('li').forEach(li=>{
+      const b=before.get(li.dataset.sid); if(!b) return; const a=li.getBoundingClientRect();
+      const dx=b.left-a.left, dy=b.top-a.top; if(!dx&&!dy) return;
+      li.animate([{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'none'}],{duration:450,easing:'cubic-bezier(.2,.8,.2,1)'});
+    });
+  }
+}
+$('cls').onchange=e=>{ selCls=e.target.value; try{localStorage.setItem('fg-board-cls',selCls);}catch(x){} render(); };
+$('theme').onclick=()=>{ const r=document.documentElement; const light=r.dataset.theme!=='light'; if(light) r.dataset.theme='light'; else delete r.dataset.theme; try{localStorage.setItem('fg-board-theme',light?'light':'dark');}catch(e){} };
+window.addEventListener('resize',schedule);
+
+/* ---------- 교사 모드 ---------- */
+$('tBtn').onclick=()=>{ if(teacherPw) return; const p=$('tPanel'); p.hidden=!p.hidden; if(!p.hidden){ $('tPw').value=''; $('tPw').focus(); } };
+async function tryTeacher(){
+  const pw=$('tPw').value.trim();
+  const {data,error}=await sb.rpc('is_teacher',{p_pw:pw});
+  if(error||data!==true){ toast('비밀번호가 맞지 않아요.'); $('tPw').select(); return; }
+  teacherPw=pw; $('tPanel').hidden=true; $('tbar').hidden=false; render(); toast('교사 모드가 켜졌어요.');
+}
+$('tOk').onclick=tryTeacher;
+$('tPw').addEventListener('keydown',e=>{ if(e.key==='Enter') tryTeacher(); if(e.key==='Escape') $('tPanel').hidden=true; });
+$('tOff').onclick=()=>{ teacherPw=null; $('tbar').hidden=true; closePop(); render(); };
+
+function closePop(){ $('popover').hidden=true; }
+document.addEventListener('pointerdown',e=>{ if(!$('popover').hidden&&!$('popover').contains(e.target)&&!e.target.closest('.board li')) closePop(); });
+function openPop(sid,li){
+  if(!teacherPw) return; const r=rows.get(sid); if(!r) return;
+  const p=$('popover');
+  p.innerHTML='<h3>'+esc(r.nick)+'</h3><p>학번 <b>'+r.sid+'</b> · '+clsName(r.cls)+' · 오늘 '+r.plays+'판</p>'+
+    '<div class="row"><button class="btn" id="pNick">닉네임 지우기</button><button class="btn danger" id="pDel">기록 삭제</button><button class="btn" id="pClose">닫기</button></div>';
+  p.hidden=false;
+  const b=li.getBoundingClientRect();
+  p.style.left=Math.min(window.innerWidth-p.offsetWidth-10,Math.max(10,b.left))+'px';
+  p.style.top=Math.min(window.innerHeight-p.offsetHeight-10,b.bottom+6)+'px';
+  $('pClose').onclick=closePop;
+  $('pNick').onclick=()=>admin('admin_clear_nick',{p_sid:sid},'닉네임을 지웠어요. 이 학생은 오늘 닉네임을 바꿀 수 없어요.');
+  $('pDel').onclick=()=>{ if(confirm(r.nick+'('+r.sid+')의 오늘 기록을 삭제할까요?')) admin('admin_delete_player',{p_sid:sid},'기록을 삭제했어요.'); };
+}
+async function admin(fn,args,ok){
+  const {error}=await sb.rpc(fn,Object.assign({p_pw:teacherPw},args));
+  if(error){ toast('처리하지 못했어요: '+error.message); return; }
+  closePop(); toast(ok); loadAll();
+}
+$('clearCls').onclick=()=>{
+  const name=selCls==='all'?'모든 반':clsName(selCls);
+  if(confirm(name+'의 오늘 기록을 모두 지울까요? 되돌릴 수 없어요.')) admin('admin_clear_class',{p_cls:selCls},'기록을 모두 지웠어요.');
+};
+})();
+</script>
+</body>
+</html>
