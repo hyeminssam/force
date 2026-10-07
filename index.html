@@ -404,23 +404,23 @@ const UNLOCK_CODE='2026'; // 미션을 여는 열쇠 코드 (원하는 값으로
 const MISSIONS=[
   {id:'free',tab:'자유 탐구',title:'자유롭게 밀어 보기',
    desc:'물체 위를 누른 채 끌어 화살표를 그리고 <b>밀기</b>를 눌러요. 화살표는 한 번에 하나만 그릴 수 있어요.<ol class="qlist"><li>화살표를 물체의 <b>어디에서 시작</b>하는지만 바꿔 보세요. 막대는 어떻게 달라지나요?</li><li>화살표가 <b>가리키는 쪽</b>만 바꿔 보세요.</li><li>화살표의 <b>길이</b>만 바꿔 보세요.</li></ol>',
-   bodies:[['boxA',200,170],['boxB',200,430],['puck',560,170],['rod',640,430]],floorChoice:true},
+   bodies:[['boxA',200,160],['boxB',200,440],['puck',560,160],['rod',640,440]],floorChoice:true},
   {id:'dir',tab:'미션 1 골대',title:'퍽을 골대에 넣어라',locked:true,
    desc:'퍽에 힘을 나타내는 화살표를 그리고 밀기를 눌러요. 퍽이 초록색 골대를 지나가면 성공!',
    bodies:[['puck',240,440]],goal:{type:'circle',x:680,y:200,r:50},
    success:'성공! 퍽은 화살표가 가리키는 쪽으로 움직였어요. 화살표의 방향은 힘의 방향을 나타내요.'},
   {id:'mag',tab:'미션 2 주차',title:'상자를 주차 칸에 세워라',locked:true,
    desc:'상자가 초록색 주차 칸 안에서 멈추려면 몇 N의 힘이 필요할까요? 너무 큰 힘이면 지나치고, 작은 힘이면 못 미쳐요.',
-   bodies:[['boxA',140,300]],goal:{type:'band',x1:365,x2:445,y1:190,y2:410},
+   bodies:[['boxA',160,320]],goal:{type:'band',x1:375,x2:455,y1:210,y2:430},
    success:'성공! 3 N의 힘으로 밀었어요. 화살표의 길이는 힘의 크기를 나타내요.'},
   {id:'point',tab:'미션 3 결승선',title:'막대를 돌리지 말고 결승선 너머로',locked:true,
    desc:'막대가 빙글 돌지 않고 곧게 미끄러져 결승선을 넘게 해 보세요. 힘의 작용점을 어디로 정해야 할까요?',
-   bodies:[['rod',500,460]],goal:{type:'line',y:220},
+   bodies:[['rod',520,440]],goal:{type:'line',y:220},
    success:'성공! 같은 힘이라도 작용점에 따라 막대가 돌기도 하고 곧게 나아가기도 해요. 화살표의 시작점은 힘의 작용점을 나타내요.'}
 ];
 const TEACHER={id:'teacher',tab:'교사 설명',title:'두 막대 비교하기',teacherOnly:true,
   desc:'왼쪽(A)과 오른쪽(B) 막대에 화살표를 하나씩 그리고 <b>밀기</b>를 누르면 두 막대가 동시에 움직여요. 화살표를 다시 그리면 그쪽 화살표만 바뀌어요.',
-  bodies:[['rod',250,470],['rod',750,470]],names:['A 막대','B 막대'],bounds:[[0,500],[500,1000]]};
+  bodies:[['rod',240,480],['rod',760,480]],names:['A 막대','B 막대'],bounds:[[0,500],[500,1000]]};
 MISSIONS.push(TEACHER);
 let teacherOn=false,teacherPwVal='',view='lab';
 const PRESETS={
@@ -467,6 +467,10 @@ function makeBody(key,x,y,a){
   b.I=t.kind==='circle'?0.5*t.m*t.r*t.r:t.m*(t.w*t.w+t.h*t.h)/12; return b;
 }
 function rot(x,y,a){const c=Math.cos(a),s=Math.sin(a);return [x*c-y*s,x*s+y*c];}
+function snapAng(dx,dy){ // 45° 단위 방향 근처(±10°)면 그쪽으로, 아니면 15° 단위로
+  const deg=-Math.atan2(dy,dx)*180/Math.PI, d45=Math.round(deg/45)*45;
+  const d=Math.abs(deg-d45)<=10?d45:Math.round(deg/15)*15; return -d*Math.PI/180; }
+
 function arrowStart(ar,initial){
   const b=bodies[ar.b]; const a=initial?b.a0:b.a; const [rx,ry]=rot(ar.lx,ar.ly,a);
   return initial?[b.x0+rx,b.y0+ry]:[b.x+rx,b.y+ry];
@@ -577,13 +581,13 @@ function setControls(){
 function hitBody(px,py){
   for(let i=bodies.length-1;i>=0;i--){
     const b=bodies[i]; const [lx,ly]=rot(px-b.x,py-b.y,-b.a);
-    if(b.kind==='circle'){ if(lx*lx+ly*ly<=(b.r+4)*(b.r+4)) return [i,lx,ly]; }
-    else if(Math.abs(lx)<=b.w/2+4&&Math.abs(ly)<=b.h/2+4) return [i,lx,ly];
+    if(b.kind==='circle'){ if(lx*lx+ly*ly<=(b.r+12)*(b.r+12)) return [i,lx,ly]; }
+    else if(Math.abs(lx)<=b.w/2+12&&Math.abs(ly)<=b.h/2+12) return [i,lx,ly];
   }
   return null;
 }
 function snapLocal(b,lx,ly){
-  let x=Math.round(lx/10)*10,y=Math.round(ly/10)*10;
+  let x=Math.round(lx/20)*20,y=Math.round(ly/20)*20;
   if(b.kind==='circle'){const d=Math.hypot(x,y); if(d>b.r){const k=b.r/d;x=x*k;y=y*k;}}
   else{x=Math.max(-b.w/2,Math.min(b.w/2,x));y=Math.max(-b.h/2,Math.min(b.h/2,y));}
   return [x,y];
@@ -614,7 +618,7 @@ canvas.addEventListener('pointermove',e=>{
   if(!drag){ canvas.style.cursor=state==='run'?'default':(tipHit(px,py)?'grab':(hitBody(px,py)?'crosshair':'default')); return; }
   const ar=drag.ar, dx=px-drag.sx, dy=py-drag.sy;
   const n=Math.min(MAXN,Math.round(Math.hypot(dx,dy)/G*2)/2);
-  const step=Math.PI/12; const ang=n>0?Math.round(Math.atan2(dy,dx)/step)*step:ar.ang;
+  const ang=n>0?snapAng(dx,dy):ar.ang;
   ar.n=n; ar.ang=ang; ar.fx=n*Math.cos(ang); ar.fy=n*Math.sin(ang);
   updateList(); draw();
 });
@@ -841,13 +845,13 @@ const DIRS=[
   {deg:180,name:'왼쪽',to:'왼쪽으로'},{deg:225,name:'왼쪽 아래',to:'왼쪽 아래로'},
   {deg:270,name:'아래쪽',to:'아래쪽으로'},{deg:315,name:'오른쪽 아래',to:'오른쪽 아래로'}];
 const TEMPLATES={
-  puck:{kind:'circle',name:'퍽',obj:'퍽을',r:30,m:1,col:'puck'},
-  box:{kind:'rect',name:'상자',obj:'상자를',w:64,h:64,m:1,col:'wood'},
-  rod:{kind:'rect',name:'막대',obj:'막대를',w:200,h:24,m:1,col:'rod'}};
+  puck:{kind:'circle',name:'퍽',obj:'퍽을',r:40,m:1,col:'puck'},
+  box:{kind:'rect',name:'상자',obj:'상자를',w:80,h:80,m:1,col:'wood'},
+  rod:{kind:'rect',name:'막대',obj:'막대를',w:240,h:24,m:1,col:'rod'}};
 const ROD_POINTS=[
-  {lx:-100,name:'왼쪽 끝',obj:'왼쪽 끝을'},{lx:-50,name:'왼쪽 끝과 가운데 사이'},
-  {lx:0,name:'가운데',obj:'가운데를'},{lx:50,name:'가운데와 오른쪽 끝 사이'},
-  {lx:100,name:'오른쪽 끝',obj:'오른쪽 끝을'}];
+  {lx:-120,name:'왼쪽 끝',obj:'왼쪽 끝을'},{lx:-60,name:'왼쪽 끝과 가운데 사이'},
+  {lx:0,name:'가운데',obj:'가운데를'},{lx:60,name:'가운데와 오른쪽 끝 사이'},
+  {lx:120,name:'오른쪽 끝',obj:'오른쪽 끝을'}];
 const PATTERN=['draw','read','curl','read','draw','curl'];
 const TYPE_LABEL={draw:'✏️ 그리기',read:'👀 읽기',curl:'🥌 컬링'};
 const BAD=['시발','씨발','씨빨','씨바','시바','십알','쉬발','ㅅㅂ','ㅆㅂ','병신','븅신','빙신','ㅂㅅ','좆','존나','졸라','ㅈㄴ','개새','새끼','쌔끼','섹스','지랄','ㅈㄹ','닥쳐','꺼져','느금','니애미','애미','애비','엠창','미친','미쳤','또라이','찐따','장애','한남','김치녀','일베','노무','운지','응디','fuck','shit','bitch','sex','dick','pussy','asshole','sibal','ssibal','tlqkf','qudtls','wlfkf','ㄲㅈ','ㅗ','똥꼬','변태','야동','죽어','자살'];
@@ -868,6 +872,10 @@ function dirName(deg){
 }
 function kstDay(){return new Date(Date.now()+9*3600e3).toISOString().slice(0,10);}
 function rot(x,y,a){const c=Math.cos(a),s=Math.sin(a);return [x*c-y*s,x*s+y*c];}
+function snapAng(dx,dy){ // 45° 단위 방향 근처(±10°)면 그쪽으로, 아니면 15° 단위로
+  const deg=-Math.atan2(dy,dx)*180/Math.PI, d45=Math.round(deg/45)*45;
+  const d=Math.abs(deg-d45)<=10?d45:Math.round(deg/15)*15; return -d*Math.PI/180; }
+
 function makeBody(key,x,y){
   const t=TEMPLATES[key]; const b=Object.assign({},t,{key,x0:x,y0:y,x,y,a:0,vx:0,vy:0,om:0});
   b.I=t.kind==='circle'?0.5*t.m*t.r*t.r:t.m*(t.w*t.w+t.h*t.h)/12; return b;
@@ -971,7 +979,7 @@ function nextRound(){
 function buildDraw(L){
   const rodQ=L>=3&&Math.random()<0.6;
   const key=rodQ?'rod':pick(['puck','box']);
-  const b=makeBody(key,500,320);
+  const b=makeBody(key,520,320);
   const d=pick(L===1?DIRS.filter(x=>x.deg%90===0):DIRS);
   const n=pick(L===1?[1,2,3,4]:[1,1.5,2,2.5,3,3.5,4,4.5]);
   const pt=rodQ?pick([ROD_POINTS[0],ROD_POINTS[2],ROD_POINTS[4]]):null;
@@ -983,13 +991,13 @@ function buildDraw(L){
 function choiceLabel(deg,n){return dirName(deg)+' · '+fmtN(n);}
 function buildRead(L){
   if(L>=3&&Math.random()<0.4){
-    const b=makeBody('rod',500,330); const p=pick(ROD_POINTS);
+    const b=makeBody('rod',520,320); const p=pick(ROD_POINTS);
     const d=pick([DIRS[1],DIRS[2],DIRS[3],DIRS[5],DIRS[6],DIRS[7]]); const n=pick([2,2.5,3]);
     const others=shuffle(ROD_POINTS.filter(x=>x!==p)).slice(0,3).map(x=>x.name);
     return {type:'read',body:b,shown:mkArrow(p.lx,0,n,d.deg),answer:p.name,choices:shuffle([p.name,...others]),
       html:'이 힘의 <b>작용점</b>은 막대의 어디일까요?',limit:9};
   }
-  const key=pick(['puck','box']); const b=makeBody(key,500,320);
+  const key=pick(['puck','box']); const b=makeBody(key,520,320);
   const dirs=L===1?DIRS.filter(x=>x.deg%90===0):DIRS;
   const mags=L===1?[1,2,3,4]:[1,1.5,2,2.5,3,3.5,4,4.5];
   const d=pick(dirs), n=pick(mags), ans=choiceLabel(d.deg,n);
@@ -1009,10 +1017,10 @@ function buildRead(L){
 function buildCurl(L){
   const rodMode=L>=4&&Math.random()<0.5;
   const degs=L===1?[0,90,180,270]:L===2?DIRS.map(d=>d.deg):Array.from({length:24},(_,i)=>i*15);
-  const mags=[1,1.5,2,2.5,3,3.5,4,4.5,5], m=rodMode?115:45;
+  const mags=[1,1.5,2,2.5,3,3.5,4,4.5,5], m=rodMode?135:55;
   for(let k=0;k<300;k++){
     const deg=pick(degs),a=deg*Math.PI/180,ux=Math.cos(a),uy=-Math.sin(a);
-    const sx=m+20+Math.random()*(W-2*m-40), sy=m+20+Math.random()*(H-2*m-40);
+    const sx=Math.round((m+20+Math.random()*(W-2*m-40))/G)*G, sy=Math.round((m+20+Math.random()*(H-2*m-40))/G)*G;
     let tmax=Infinity;
     if(ux>1e-6) tmax=Math.min(tmax,(W-m-sx)/ux); if(ux<-1e-6) tmax=Math.min(tmax,(m-sx)/ux);
     if(uy>1e-6) tmax=Math.min(tmax,(H-m-sy)/uy); if(uy<-1e-6) tmax=Math.min(tmax,(m-sy)/uy);
@@ -1047,7 +1055,7 @@ function submit(){
   if(!arrow||!arrow.n){ pop('','화살표를 먼저 그려요','part',900); return; }
   if(round.type==='draw'){
     const w=round.want, wrong=[];
-    if(w.pt&&Math.abs(arrow.lx-w.pt.lx)>20) wrong.push('작용점');
+    if(w.pt&&Math.abs(arrow.lx-w.pt.lx)>25) wrong.push('작용점');
     if(degOf(arrow.ang)!==w.deg) wrong.push('방향');
     if(arrow.n!==w.n) wrong.push('크기');
     const frac=Math.max(0,1-round.elapsed/round.limit);
@@ -1127,12 +1135,12 @@ async function endGame(){
 function toWorld(e){const r=canvas.getBoundingClientRect();return [(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H];}
 function hitBody(px,py){
   if(!body) return null; const [lx,ly]=rot(px-body.x,py-body.y,-body.a);
-  if(body.kind==='circle'){ if(lx*lx+ly*ly<=(body.r+6)*(body.r+6)) return [lx,ly]; }
-  else if(Math.abs(lx)<=body.w/2+6&&Math.abs(ly)<=body.h/2+6) return [lx,ly];
+  if(body.kind==='circle'){ if(lx*lx+ly*ly<=(body.r+14)*(body.r+14)) return [lx,ly]; }
+  else if(Math.abs(lx)<=body.w/2+14&&Math.abs(ly)<=body.h/2+14) return [lx,ly];
   return null;
 }
 function snapLocal(lx,ly){
-  let x=Math.round(lx/10)*10,y=Math.round(ly/10)*10;
+  let x=Math.round(lx/20)*20,y=Math.round(ly/20)*20;
   if(body.kind==='circle'){const d=Math.hypot(x,y); if(d>body.r){const k=body.r/d;x*=k;y*=k;}}
   else{x=Math.max(-body.w/2,Math.min(body.w/2,x));y=Math.max(-body.h/2,Math.min(body.h/2,y));}
   return [x,y];
@@ -1152,7 +1160,7 @@ canvas.addEventListener('pointermove',e=>{
   if(!drag||!canDraw()) return;
   const [px,py]=toWorld(e), dx=px-drag.sx, dy=py-drag.sy;
   const n=Math.min(MAXN,Math.round(Math.hypot(dx,dy)/G*2)/2);
-  const st=Math.PI/12; const ang=n>0?Math.round(Math.atan2(dy,dx)/st)*st:arrow.ang;
+  const ang=n>0?snapAng(dx,dy):arrow.ang;
   arrow.n=n; arrow.ang=ang; arrow.fx=n*Math.cos(ang); arrow.fy=n*Math.sin(ang);
 });
 function endDrag(){ if(!drag) return; drag=null; if(arrow&&!arrow.n) arrow=null; }
@@ -1218,7 +1226,7 @@ function drawBodyAt(b,x,y,a,ghost,color){
   if(b.kind==='circle'){ ctx.beginPath(); ctx.arc(0,0,b.r,0,Math.PI*2); ctx.fill(); ctx.stroke(); }
   else{ rr(-b.w/2,-b.h/2,b.w,b.h,b.key==='rod'?6:4); ctx.fill(); ctx.stroke();
     if(b.key==='box'){ctx.globalAlpha=.5; ctx.lineWidth=1.5; rr(-b.w/2+6,-b.h/2+6,b.w-12,b.h-12,2); ctx.stroke(); ctx.globalAlpha=1;}
-    if(b.key==='rod'){ ctx.strokeStyle=C[b.col+'-text']; ctx.globalAlpha=.35; ctx.lineWidth=2; [-50,0,50].forEach(px=>{ctx.beginPath(); ctx.moveTo(px,-6); ctx.lineTo(px,6); ctx.stroke();}); ctx.globalAlpha=1; } }
+    if(b.key==='rod'){ ctx.strokeStyle=C[b.col+'-text']; ctx.globalAlpha=.35; ctx.lineWidth=2; [-60,0,60].forEach(px=>{ctx.beginPath(); ctx.moveTo(px,-6); ctx.lineTo(px,6); ctx.stroke();}); ctx.globalAlpha=1; } }
   ctx.fillStyle=C[b.col+'-text']; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='700 13px "IBM Plex Sans KR", sans-serif';
   if(b.key!=='rod') ctx.fillText(b.name,0,1);
   ctx.restore();
