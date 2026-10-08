@@ -75,7 +75,7 @@ select{font:inherit;font-size:1.1rem;font-weight:700;padding:6px 10px;border-rad
 <body>
 <div class="page">
   <header>
-    <h1>🏆 힘 화살표 챌린지 순위</h1>
+    <h1><span id="logo">🏆</span> 힘 화살표 챌린지 순위</h1>
     <div class="meta">
       <select id="cls" aria-label="반 선택"></select>
       <span id="date"></span>
@@ -97,7 +97,6 @@ select{font:inherit;font-size:1.1rem;font-weight:700;padding:6px 10px;border-rad
   </div>
 </div>
 
-<button class="secret" id="tBtn" aria-label="교사용">·</button>
 <div class="tpanel" id="tPanel" hidden>
   <label for="tPw">교사용</label>
   <input id="tPw" type="password" inputmode="numeric" autocomplete="off">
@@ -236,7 +235,9 @@ $('theme').onclick=()=>{ const r=document.documentElement; const light=r.dataset
 window.addEventListener('resize',schedule);
 
 /* ---------- 교사 모드 ---------- */
-$('tBtn').onclick=()=>{ if(teacherPw) return; const p=$('tPanel'); p.hidden=!p.hidden; if(!p.hidden){ $('tPw').value=''; $('tPw').focus(); } };
+function teacherDoor(){ if(teacherPw) return; const p=$('tPanel'); p.hidden=!p.hidden; if(!p.hidden){ $('tPw').value=''; $('tPw').focus(); } }
+(function(){ let n=0,t=0; $('logo').addEventListener('click',()=>{ const now=Date.now(); n=(now-t<700)?n+1:1; t=now; if(n>=5){ n=0; teacherDoor(); } }); })();
+if(/(^|[#&?])teacher\b/.test(location.hash+location.search)) setTimeout(teacherDoor,300);
 async function tryTeacher(){
   const pw=$('tPw').value.trim();
   const {data,error}=await sb.rpc('is_teacher',{p_pw:pw});
