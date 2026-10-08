@@ -79,6 +79,7 @@ select{font:inherit;font-size:1.1rem;font-weight:700;padding:6px 10px;border-rad
     <div class="meta">
       <select id="cls" aria-label="반 선택"></select>
       <span id="date"></span>
+      <span class="gate" id="mgate">🔒 미션 닫힘</span>
       <span class="gate" id="gate">🔒 게임 닫힘</span>
       <span class="live" id="live">연결 중…</span>
       <button class="btn" id="theme" title="밝기 바꾸기">◐</button>
@@ -91,6 +92,7 @@ select{font:inherit;font-size:1.1rem;font-weight:700;padding:6px 10px;border-rad
 
   <div class="tbar" id="tbar" hidden>
     <span>교사 모드 · 닉네임을 누르면 학번 확인과 수정을 할 수 있어요</span>
+    <button class="btn" id="misBtn">미션 열기</button>
     <button class="btn" id="gateBtn">게임 열기</button>
     <button class="btn danger" id="clearCls">이 반 오늘 기록 모두 지우기</button>
     <button class="btn" id="tOff">교사 모드 끄기</button>
@@ -137,13 +139,21 @@ if(!sb){
 }
 
 /* ---------- 게임 열기 스위치 ---------- */
-let gateOpen=false;
+let gateOpen=false,misOpen=false,gRow={};
+const isToday=t=>!!t&&new Date(Date.parse(t)+9*3600e3).toISOString().slice(0,10)===kstDay();
 function applyGate(r){
-  gateOpen=!!(r&&r.open&&new Date(Date.parse(r.updated_at)+9*3600e3).toISOString().slice(0,10)===kstDay());
+  gRow=Object.assign({},gRow,r||{});
+  gateOpen=!!(gRow.open&&isToday(gRow.updated_at)); misOpen=!!(gRow.missions&&isToday(gRow.missions_at));
   $('gate').textContent=gateOpen?'🎮 게임 열림':'🔒 게임 닫힘'; $('gate').className='gate'+(gateOpen?' on':'');
-  $('gateBtn').textContent=gateOpen?'게임 닫기':'게임 열기';
+  $('mgate').textContent=misOpen?'📘 미션 열림':'🔒 미션 닫힘'; $('mgate').className='gate'+(misOpen?' on':'');
+  $('gateBtn').textContent=gateOpen?'게임 닫기':'게임 열기'; $('misBtn').textContent=misOpen?'미션 닫기':'미션 열기';
 }
-async function loadGate(){ try{ const {data,error}=await sb.from('game_gate').select('open,updated_at').eq('id',1).maybeSingle(); if(!error) applyGate(data); }catch(e){} }
+async function loadGate(){ try{ const {data,error}=await sb.from('game_gate').select('*').eq('id',1).maybeSingle(); if(!error) applyGate(data); }catch(e){} }
+$('misBtn').onclick=async()=>{
+  const want=!misOpen; const {error}=await sb.rpc('admin_set_missions',{p_pw:teacherPw,p_open:want});
+  if(error){ toast('처리하지 못했어요: '+error.message); return; }
+  applyGate({missions:want,missions_at:new Date().toISOString()}); toast(want?'미션을 열었어요. 학생 화면에 바로 미션 탭이 열려요.':'미션을 닫았어요.');
+};
 $('gateBtn').onclick=async()=>{
   const want=!gateOpen; const {error}=await sb.rpc('admin_set_gate',{p_pw:teacherPw,p_open:want});
   if(error){ toast('처리하지 못했어요: '+error.message); return; }

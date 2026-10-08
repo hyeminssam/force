@@ -232,15 +232,11 @@ aside h3{margin:0 0 8px;font-size:.95rem;color:var(--muted);font-weight:500;}
   <nav class="tabs" role="tablist" id="tabs"></nav>
   <div class="tstrip" id="tStrip" hidden>
     <b>교사 모드</b><span class="gs" id="gateState">게임 닫힘</span>
+    <button class="btn" id="misBtn">미션 열기</button>
     <button class="btn" id="gateBtn">게임 열기</button>
     <a class="btn" href="board.html" target="_blank" rel="noopener">순위판 열기 ↗</a>
   </div>
   <div id="labView">
-  <div class="unlock" id="unlock" hidden>
-    <label for="code">미션은 수업이 끝난 뒤에 열려요. 선생님이 알려준 열쇠 코드를 입력하세요.</label>
-    <input id="code" autocomplete="off" inputmode="numeric">
-    <button class="btn" id="codeBtn">열기</button>
-  </div>
 
   <div class="layout">
     <div class="stage">
@@ -425,10 +421,17 @@ try{ if(CFG.SUPABASE_URL&&CFG.SUPABASE_KEY&&window.supabase) sb=window.supabase.
 const kst=t=>new Date(t+9*3600e3).toISOString().slice(0,10);
 let loaded=false;
 const FG=window.FG={sb,online:!!sb,open:false,teacher:false,
+  missions:false,
   async setGate(pw,open){
     if(!sb) return {error:{message:'순위 서버가 연결되지 않았어요'}};
     const r=await sb.rpc('admin_set_gate',{p_pw:pw,p_open:open});
-    if(!r.error) apply({open,updated_at:new Date().toISOString()});
+    if(!r.error) apply(Object.assign({},last,{open,updated_at:new Date().toISOString()}));
+    return r;
+  },
+  async setMissions(pw,open){
+    if(!sb) return {error:{message:'순위 서버가 연결되지 않았어요'}};
+    const r=await sb.rpc('admin_set_missions',{p_pw:pw,p_open:open});
+    if(!r.error) apply(Object.assign({},last,{missions:open,missions_at:new Date().toISOString()}));
     return r;
   },
   async checkTeacher(pw){
@@ -436,13 +439,19 @@ const FG=window.FG={sb,online:!!sb,open:false,teacher:false,
     try{ const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('fg:'+pw));
       return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')==='335af59165652ada8b51f2df7c2b3104ccef04231c113c58fa3ebdbb25e0d671'; }catch(e){ return false; }
   }};
+let last={};
 function apply(row){
-  const open=!!(row&&row.open&&kst(Date.parse(row.updated_at))===kst(Date.now()));
+  row=row||{}; last=Object.assign({},last,row);
+  const today=kst(Date.now());
+  const open=!!(last.open&&last.updated_at&&kst(Date.parse(last.updated_at))===today);
+  const mis=!!(last.missions&&last.missions_at&&kst(Date.parse(last.missions_at))===today);
   const initial=!loaded; loaded=true;
-  if(open!==FG.open||initial){ const was=FG.open; FG.open=open; window.dispatchEvent(new CustomEvent('fg-gate',{detail:{open,was,initial}})); }
+  if(open!==FG.open||mis!==FG.missions||initial){
+    const was=FG.open, misWas=FG.missions; FG.open=open; FG.missions=mis;
+    window.dispatchEvent(new CustomEvent('fg-gate',{detail:{open,was,missions:mis,misWas,initial}})); }
 }
 async function load(){
-  try{ const {data,error}=await sb.from('game_gate').select('open,updated_at').eq('id',1).maybeSingle(); if(!error) apply(data); }catch(e){}
+  try{ const {data,error}=await sb.from('game_gate').select('*').eq('id',1).maybeSingle(); if(!error) apply(data); }catch(e){}
 }
 if(sb){
   load();
@@ -462,7 +471,6 @@ const TEMPLATES={
   puck:{kind:'circle',name:'퍽',r:30,m:1,col:'puck'},
   rod:{kind:'rect',name:'막대',w:200,h:24,m:1,col:'rod'}
 };
-const UNLOCK_CODE='2026'; // 미션을 여는 열쇠 코드 (원하는 값으로 바꾸세요)
 const MISSIONS=[
   {id:'free',tab:'자유 탐구',title:'자유롭게 밀어 보기',
    desc:'물체 위를 누른 채 끌어 화살표를 그리고 <b>밀기</b>를 눌러요. 화살표는 한 번에 하나만 그릴 수 있어요.<ol class="qlist"><li>화살표를 물체의 <b>어디에서 시작</b>하는지만 바꿔 보세요. 막대는 어떻게 달라지나요?</li><li>화살표가 <b>가리키는 쪽</b>만 바꿔 보세요.</li><li>화살표의 <b>길이</b>만 바꿔 보세요.</li></ol>',
@@ -509,9 +517,10 @@ const canvas=$('lab'),ctx=canvas.getContext('2d'),wrap=$('wrap');
 let C={},scale=1,dpr=1;
 let mission=MISSIONS[0],bodies=[],arrows=[],state='edit',t=0,trails=[],runInfo={},drag=null,raf=null,last=0;
 let floor='wood';
-let revealed=false,solved=new Set(),unlocked=false,answers={},pendingMission=null;
-try{const s=JSON.parse(localStorage.getItem('force-arrow-progress2')||'{}');(s.s||[]).forEach(k=>solved.add(k));unlocked=!!s.u;answers=s.a||{};}catch(e){}
-function save(){try{localStorage.setItem('force-arrow-progress2',JSON.stringify({s:[...solved],u:unlocked,a:answers}));}catch(e){}}
+let revealed=false,solved=new Set(),answers={};
+const misOpen=()=>FG.missions||teacherOn;
+try{const s=JSON.parse(localStorage.getItem('force-arrow-progress2')||'{}');(s.s||[]).forEach(k=>solved.add(k));answers=s.a||{};}catch(e){}
+function save(){try{localStorage.setItem('force-arrow-progress2',JSON.stringify({s:[...solved],a:answers}));}catch(e){}}
 const isFree=()=>mission.id==='free';
 
 function readColors(){
@@ -544,11 +553,11 @@ function buildTabs(){
   const nav=$('tabs'); nav.innerHTML='';
   MISSIONS.forEach(m=>{
     if(m.teacherOnly&&!teacherOn) return;
-    const b=document.createElement('button'); const lock=m.locked&&!unlocked;
+    const b=document.createElement('button'); const lock=m.locked&&!misOpen();
     b.textContent=(lock?'🔒 ':'')+m.tab; b.setAttribute('role','tab');
     b.setAttribute('aria-selected',(m===mission&&view==='lab')?'true':'false');
     if(lock) b.className='locked'; else if(m.teacherOnly) b.className='teacher'; else if(solved.has(m.id)) b.className='done';
-    b.onclick=()=>{ if(lock){ pendingMission=m; $('unlock').hidden=false; $('code').focus(); return; } $('unlock').hidden=true; loadMission(m); };
+    b.onclick=()=>{ if(lock){ toast('선생님이 미션을 열어 주면 할 수 있어요.'); return; } loadMission(m); };
     nav.appendChild(b);
     if(m.id==='free'){ const tb=document.createElement('button'); tb.textContent='📗 교과서 실험'; tb.setAttribute('role','tab');
       tb.setAttribute('aria-selected',view==='tb'?'true':'false'); tb.className='tbtab'; tb.onclick=openTB; nav.appendChild(tb); }
@@ -560,18 +569,19 @@ function buildTabs(){
   nav.appendChild(gb);
 }
 function openTB(){
-  stop(); view='tb'; $('labView').hidden=true; $('gameView').hidden=true; $('tbView').hidden=false; $('unlock').hidden=true; buildTabs();
+  stop(); view='tb'; $('labView').hidden=true; $('gameView').hidden=true; $('tbView').hidden=false; buildTabs();
   window.dispatchEvent(new Event('fg-show-tb'));
 }
 function openGame(){
-  stop(); view='game'; $('labView').hidden=true; $('tbView').hidden=true; $('gameView').hidden=false; $('unlock').hidden=true; buildTabs();
+  stop(); view='game'; $('labView').hidden=true; $('tbView').hidden=true; $('gameView').hidden=false; buildTabs();
   window.dispatchEvent(new Event('fg-show-game'));
 }
 function renderTStrip(){
   $('tStrip').hidden=!teacherOn; if(!teacherOn) return;
-  const gs=$('gateState'), gb=$('gateBtn');
-  if(!FG.online){ gs.textContent='순위 서버 미연결 · 게임은 이 화면에서만 열려요'; gs.className='gs'; gb.hidden=true; return; }
-  gs.textContent=FG.open?'🎮 게임 열림 (학생 화면에 실시간 반영)':'🔒 게임 닫힘'; gs.className='gs'+(FG.open?' on':'');
+  const gs=$('gateState'), gb=$('gateBtn'), mb=$('misBtn');
+  if(!FG.online){ gs.textContent='순위 서버 미연결 · 미션과 게임은 이 화면에서만 열려요'; gs.className='gs'; gb.hidden=true; mb.hidden=true; return; }
+  gs.textContent=(FG.missions?'📘 미션 열림':'🔒 미션 닫힘')+' · '+(FG.open?'🎮 게임 열림':'🔒 게임 닫힘'); gs.className='gs'+((FG.open||FG.missions)?' on':'');
+  mb.textContent=FG.missions?'미션 닫기':'미션 열기'; mb.hidden=false;
   gb.textContent=FG.open?'게임 닫기':'게임 열기'; gb.hidden=false;
 }
 function loadMission(m){
@@ -869,32 +879,35 @@ $('trail').onchange=draw;
 $('floor').onchange=()=>{ floor=$('floor').value; resetPositions(); };
 $('checkSum').onclick=()=>renderSummary(true);
 document.querySelectorAll('.sum input').forEach(inp=>inp.addEventListener('input',()=>{answers[inp.dataset.k]=inp.value; save();}));
-function tryUnlock(){
-  if($('code').value.trim()===UNLOCK_CODE){ unlocked=true; save(); $('unlock').hidden=true; $('code').value=''; loadMission(pendingMission||MISSIONS[1]); toast('미션이 열렸어요!'); }
-  else { toast('열쇠 코드가 맞지 않아요.'); $('code').select(); }
-}
-$('codeBtn').onclick=tryUnlock;
 document.querySelectorAll('.presets .btn').forEach(b=>b.onclick=()=>applyPreset(b.dataset.p));
 function teacherDoor(){ if(teacherOn){ loadMission(TEACHER); return; } const p=$('tPanel'); p.hidden=!p.hidden; if(!p.hidden){$('tPw').value=''; $('tPw').focus();} }
 (function(){ let n=0,t=0; $('logo').addEventListener('click',()=>{ const now=Date.now(); n=(now-t<700)?n+1:1; t=now; if(n>=5){ n=0; teacherDoor(); } }); })();
 if(/(^|[#&?])teacher\b/.test(location.hash+location.search)) setTimeout(teacherDoor,300);
 async function tryTeacher(){
   const pw=$('tPw').value.trim();
-  if(await FG.checkTeacher(pw)){ teacherOn=true; teacherPwVal=pw; FG.teacher=true; $('tPanel').hidden=true; $('unlock').hidden=true;
+  if(await FG.checkTeacher(pw)){ teacherOn=true; teacherPwVal=pw; FG.teacher=true; $('tPanel').hidden=true;
     window.dispatchEvent(new Event('fg-teacher')); renderTStrip(); loadMission(TEACHER); }
   else { toast('비밀번호가 맞지 않아요.'); $('tPw').select(); }
 }
+$('misBtn').onclick=async()=>{
+  const b=$('misBtn'); b.disabled=true; const r=await FG.setMissions(teacherPwVal,!FG.missions); b.disabled=false;
+  if(r.error) toast('처리하지 못했어요: '+r.error.message);
+};
 $('gateBtn').onclick=async()=>{
   const b=$('gateBtn'); b.disabled=true; const r=await FG.setGate(teacherPwVal,!FG.open); b.disabled=false;
   if(r.error) toast('처리하지 못했어요: '+r.error.message);
 };
 window.addEventListener('fg-gate',e=>{
   buildTabs(); renderTStrip();
-  if(!e.detail.initial&&e.detail.open&&!teacherOn&&view==='lab') toast('🎮 게임이 열렸어요! 게임 탭을 눌러 보세요.');
+  const d=e.detail;
+  if(!d.initial&&!teacherOn){
+    if(d.missions&&!d.misWas) toast('📘 미션이 열렸어요! 미션 탭을 눌러 보세요.');
+    else if(d.open&&!d.was&&view!=='game') toast('🎮 게임이 열렸어요! 게임 탭을 눌러 보세요.');
+    if(!d.missions&&d.misWas&&view==='lab'&&mission.locked){ loadMission(MISSIONS[0]); toast('미션이 닫혔어요.'); }
+  }
 });
 $('tOk').onclick=tryTeacher;
 $('tPw').addEventListener('keydown',e=>{ if(e.key==='Enter') tryTeacher(); if(e.key==='Escape') $('tPanel').hidden=true; });
-$('code').addEventListener('keydown',e=>{ if(e.key==='Enter') tryUnlock(); });
 const mq=window.matchMedia('(prefers-color-scheme: dark)');
 (mq.addEventListener?mq.addEventListener('change',()=>{readColors();updateList();draw();}):mq.addListener(()=>{readColors();updateList();draw();}));
 new ResizeObserver(resize).observe(wrap);
