@@ -114,8 +114,18 @@ aside h3{margin:0 0 8px;font-size:.95rem;color:var(--muted);font-weight:500;}
 .qlist{margin:8px 0 0;padding-left:1.3em;font-size:.92rem;}
 .qlist li{margin-bottom:4px;}
 .sum label{display:block;font-size:.93rem;margin-top:10px;line-height:2;}
-.sum input{font:inherit;font-size:.93rem;width:7.5em;padding:2px 8px;border:none;border-bottom:2px solid var(--muted);background:transparent;color:var(--ink);text-align:center;}
-.sum input:focus{outline:none;border-bottom-color:var(--force1);}
+.bank{display:flex;gap:8px;flex-wrap:wrap;min-height:46px;padding:8px;border:2px dashed var(--line);border-radius:10px;margin-top:6px;}
+.chip{font:inherit;font-size:1rem;font-weight:700;padding:6px 14px;border-radius:20px;border:2px solid var(--force0);background:var(--panel);color:var(--force0);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
+.chip.sel{background:var(--force0);color:#fff;}
+.chip.ghost{position:fixed;z-index:50;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.2);cursor:grabbing;}
+.chip.dragging{opacity:.35;}
+.bank .empty-hint{color:var(--muted);font-size:.85rem;align-self:center;}
+.sum .row{display:block;font-size:.93rem;margin-top:10px;line-height:2.4;}
+.slot{display:inline-flex;align-items:center;justify-content:center;min-width:5.4em;min-height:2em;padding:0 6px;vertical-align:middle;border:2px dashed var(--muted);border-radius:20px;background:var(--paper);}
+.slot.over,.slot.target{border-color:var(--force1);background:var(--bg);}
+.slot.ok{border-style:solid;border-color:var(--ok);}
+.slot.bad{border-style:solid;border-color:var(--try);}
+.slot .chip{padding:3px 12px;font-size:.95rem;}
 .sum .res{display:block;font-size:.84rem;line-height:1.45;min-height:0;}
 .sum .res.ok{color:var(--ok);}
 .sum .res.try{color:var(--try);}
@@ -278,11 +288,13 @@ aside h3{margin:0 0 8px;font-size:.95rem;color:var(--muted);font-weight:500;}
       </section>
       <section id="sumSec">
         <h2>정리해 보기</h2>
-        <h3>실험하며 알아낸 것을 빈칸에 써 보세요</h3>
+        <h3>실험하며 알아낸 것을 빈칸에 채워 보세요</h3>
         <div class="sum">
-          <label>화살표의 <b>시작점</b>은 힘의 <input data-k="point" aria-label="화살표의 시작점은 힘의 무엇"> 을(를) 나타내요.<span class="res" data-r="point"></span></label>
-          <label>화살표의 <b>방향</b>은 힘의 <input data-k="dir" aria-label="화살표의 방향은 힘의 무엇"> 을(를) 나타내요.<span class="res" data-r="dir"></span></label>
-          <label>화살표의 <b>길이</b>는 힘의 <input data-k="mag" aria-label="화살표의 길이는 힘의 무엇"> 을(를) 나타내요.<span class="res" data-r="mag"></span></label>
+          <div class="bank" id="bank" aria-label="낱말 상자"></div>
+          <div class="row">화살표의 <b>시작점</b>은 힘의 <span class="slot" data-k="point" tabindex="0" role="button" aria-label="화살표의 시작점 빈칸"></span> 을(를) 나타내요.<span class="res" data-r="point"></span></div>
+          <div class="row">화살표의 <b>방향</b>은 힘의 <span class="slot" data-k="dir" tabindex="0" role="button" aria-label="화살표의 방향 빈칸"></span> 을(를) 나타내요.<span class="res" data-r="dir"></span></div>
+          <div class="row">화살표의 <b>길이</b>는 힘의 <span class="slot" data-k="mag" tabindex="0" role="button" aria-label="화살표의 길이 빈칸"></span> 을(를) 나타내요.<span class="res" data-r="mag"></span></div>
+          <p class="note">위의 낱말을 끌어다 빈칸에 놓아요. 낱말을 누른 뒤 빈칸을 눌러도 돼요.</p>
         </div>
         <div class="sum-actions">
           <button class="btn" id="checkSum">확인하기</button>
@@ -597,17 +609,54 @@ function loadMission(m){
   buildTabs(); updateList(); setControls(); draw();
 }
 function setFeedback(ok,msg){const f=$('feedback'); if(ok===null){f.className='feedback';f.textContent='';return;} f.className='feedback '+(ok?'ok':'try'); f.textContent=msg;}
+const WORDS=['작용점','방향','크기'];
+let bankOrder=WORDS.slice().sort(()=>Math.random()-.5), selWord=null;
+Object.keys(answers).forEach(k=>{ if(!WORDS.includes(answers[k])) delete answers[k]; });
+function chipEl(w){ const c=document.createElement('span'); c.className='chip'+(selWord===w?' sel':''); c.textContent=w; c.dataset.w=w; c.addEventListener('pointerdown',chipDown); return c; }
 function renderSummary(check){
-  document.querySelectorAll('.sum input').forEach(inp=>{
-    const k=inp.dataset.k, r=document.querySelector('.res[data-r="'+k+'"]');
-    if(document.activeElement!==inp) inp.value=answers[k]||'';
+  const used=new Set(Object.values(answers));
+  const bank=$('bank'); bank.innerHTML='';
+  bankOrder.filter(w=>!used.has(w)).forEach(w=>bank.appendChild(chipEl(w)));
+  if(!bank.children.length){ const h=document.createElement('span'); h.className='empty-hint'; h.textContent='낱말을 모두 넣었어요. 확인하기를 눌러 보세요.'; bank.appendChild(h); }
+  document.querySelectorAll('.sum .slot').forEach(sl=>{
+    const k=sl.dataset.k, r=document.querySelector('.res[data-r="'+k+'"]'), w=answers[k];
+    sl.innerHTML=''; if(w) sl.appendChild(chipEl(w));
+    sl.classList.toggle('target',!!selWord&&!w);
+    sl.classList.remove('ok','bad');
     if(!check){ r.className='res'; r.textContent=''; return; }
-    const v=(answers[k]||'').replace(/\s/g,'');
-    if(!v){ r.className='res try'; r.textContent='실험해 보고 빈칸을 채워 보세요.'; }
-    else if(CHECKS[k].re.test(v)){ r.className='res ok'; r.textContent=CHECKS[k].ok; }
-    else { r.className='res try'; r.textContent='한 번 더 실험해 보고 생각해 볼까요?'; }
+    if(!w){ r.className='res try'; r.textContent='빈칸에 낱말을 넣어 보세요.'; }
+    else if(w===ANSWER[k]){ sl.classList.add('ok'); r.className='res ok'; r.textContent=CHECKS[k].ok; }
+    else { sl.classList.add('bad'); r.className='res try'; r.textContent='한 번 더 실험해 보고 생각해 볼까요?'; }
   });
 }
+function placeWord(w,k){ // k: 빈칸 이름, null이면 낱말 상자로
+  const from=Object.keys(answers).find(x=>answers[x]===w);
+  if(k){ const prev=answers[k]; if(from) { if(prev) answers[from]=prev; else delete answers[from]; } answers[k]=w; }
+  else if(from) delete answers[from];
+  selWord=null; save(); renderSummary(false);
+}
+let dragW=null,ghost=null,sx0=0,sy0=0,moved=false,srcEl=null;
+function chipDown(e){
+  e.preventDefault(); dragW=e.currentTarget.dataset.w; srcEl=e.currentTarget; sx0=e.clientX; sy0=e.clientY; moved=false;
+  document.addEventListener('pointermove',chipMove); document.addEventListener('pointerup',chipUp,{once:true}); document.addEventListener('pointercancel',chipUp,{once:true});
+}
+function chipMove(e){
+  if(!moved&&Math.hypot(e.clientX-sx0,e.clientY-sy0)<6) return;
+  if(!moved){ moved=true; ghost=srcEl.cloneNode(true); ghost.classList.add('ghost'); ghost.classList.remove('sel'); document.body.appendChild(ghost); srcEl.classList.add('dragging'); }
+  ghost.style.left=(e.clientX-ghost.offsetWidth/2)+'px'; ghost.style.top=(e.clientY-ghost.offsetHeight/2)+'px';
+  const t=document.elementFromPoint(e.clientX,e.clientY);
+  document.querySelectorAll('.sum .slot').forEach(sl=>sl.classList.toggle('over',!!t&&sl.contains(t)));
+}
+function chipUp(e){
+  document.removeEventListener('pointermove',chipMove);
+  document.querySelectorAll('.sum .slot').forEach(sl=>sl.classList.remove('over'));
+  const w=dragW; dragW=null;
+  if(!moved){ selWord=(selWord===w)?null:w; renderSummary(false); return; }
+  if(ghost){ ghost.remove(); ghost=null; }
+  const t=document.elementFromPoint(e.clientX,e.clientY), sl=t&&t.closest('.sum .slot');
+  if(sl) placeWord(w,sl.dataset.k); else if(t&&t.closest('#bank')) placeWord(w,null); else renderSummary(false);
+}
+function slotTap(sl){ if(selWord) placeWord(selWord,sl.dataset.k); }
 let toastTimer=null;
 function toast(msg){const el=$('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2400);}
 
@@ -878,7 +927,8 @@ $('clear').onclick=()=>{ if(state==='done') resetPositions(); arrows=[]; setFeed
 $('trail').onchange=draw;
 $('floor').onchange=()=>{ floor=$('floor').value; resetPositions(); };
 $('checkSum').onclick=()=>renderSummary(true);
-document.querySelectorAll('.sum input').forEach(inp=>inp.addEventListener('input',()=>{answers[inp.dataset.k]=inp.value; save();}));
+document.querySelectorAll('.sum .slot').forEach(sl=>{ sl.addEventListener('click',e=>{ if(e.target.closest('.chip')) return; slotTap(sl); });
+  sl.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); slotTap(sl); } }); });
 document.querySelectorAll('.presets .btn').forEach(b=>b.onclick=()=>applyPreset(b.dataset.p));
 function teacherDoor(){ if(teacherOn){ loadMission(TEACHER); return; } const p=$('tPanel'); p.hidden=!p.hidden; if(!p.hidden){$('tPw').value=''; $('tPw').focus();} }
 (function(){ let n=0,t=0; $('logo').addEventListener('click',()=>{ const now=Date.now(); n=(now-t<700)?n+1:1; t=now; if(n>=5){ n=0; teacherDoor(); } }); })();
